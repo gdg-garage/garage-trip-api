@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"time"
+
 	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 )
@@ -127,5 +130,32 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate JWT
+	jwtToken, err := h.GenerateToken(user.ID)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
+	// Set Cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    jwtToken,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+		Path:     "/",
+		// Secure:   true, // Uncomment in production wi
+		// th HTTPS
+	})
+
 	w.Write([]byte(fmt.Sprintf("Welcome %s! You are logged in.", user.Username)))
+}
+
+func (h *AuthHandler) GenerateToken(userID uint) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(h.cfg.JWTSecret))
 }

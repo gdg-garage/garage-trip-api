@@ -20,13 +20,15 @@ func main() {
 	db := database.Connect(cfg)
 
 	// Initialize Auth Handler
+	// Initialize Handlers
 	authHandler := auth.NewAuthHandler(cfg, db)
+	registrationHandler := handlers.NewRegistrationHandler(db)
 
 	// Initialize Router
 	r := chi.NewRouter()
 
 	// Register Routes
-	handlers.RegisterRoutes(r, authHandler)
+	handlers.RegisterRoutes(r, authHandler, registrationHandler)
 
 	// Start Server
 	log.Printf("Starting server on port %s", cfg.Port)

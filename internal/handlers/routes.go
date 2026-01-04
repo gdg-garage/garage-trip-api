@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler) {
+func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandler *RegistrationHandler) {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -21,5 +21,10 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler) {
 			r.Get("/login", authHandler.HandleLogin)
 			r.Get("/callback", authHandler.HandleCallback)
 		})
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(authHandler.JWTMiddleware)
+		r.Post("/register", registrationHandler.HandleRegister)
 	})
 }
