@@ -1,0 +1,14 @@
+services:
+  server:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DATABASE_PATH=/app/data/garage.db
+    # Load other env vars from .env file (e.g. DISCORD credentials)
+    env_file:
+      - .env
+    volumes:
+      - ./garage.db:/app/data/garage.db
+    restart: unless-stopped

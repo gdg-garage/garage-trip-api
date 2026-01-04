@@ -1,0 +1,8 @@
+# Secrets
+.env
+
+# Database
+garage.db
+
+# Binaries
+server
