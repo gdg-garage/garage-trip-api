@@ -91,7 +91,13 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !isMember {
-			http.Error(w, "Access denied: You are not a member of the required guild.", http.StatusForbidden)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error":    "Forbidden",
+				"message":  "Access denied: You are not a member of the required Discord guild.",
+				"guild_id": h.cfg.DiscordGuildID,
+			})
 			return
 		}
 	}
