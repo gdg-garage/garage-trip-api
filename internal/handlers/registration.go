@@ -19,8 +19,10 @@ func NewRegistrationHandler(db *gorm.DB) *RegistrationHandler {
 }
 
 type RegistrationRequest struct {
-	ArrivalDate   time.Time `json:"arrival_date"`
-	DepartureDate time.Time `json:"departure_date"`
+	ArrivalDate      time.Time `json:"arrival_date"`
+	DepartureDate    time.Time `json:"departure_date"`
+	FoodRestrictions string    `json:"food_restrictions"`
+	ChildrenCount    int       `json:"children_count"`
 }
 
 func (h *RegistrationHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
@@ -44,9 +46,11 @@ func (h *RegistrationHandler) HandleRegister(w http.ResponseWriter, r *http.Requ
 	}
 
 	registration := models.Registration{
-		UserID:        userID,
-		ArrivalDate:   req.ArrivalDate,
-		DepartureDate: req.DepartureDate,
+		UserID:           userID,
+		ArrivalDate:      req.ArrivalDate,
+		DepartureDate:    req.DepartureDate,
+		FoodRestrictions: req.FoodRestrictions,
+		ChildrenCount:    req.ChildrenCount,
 	}
 
 	if err := h.db.Create(&registration).Error; err != nil {

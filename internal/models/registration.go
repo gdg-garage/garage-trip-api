@@ -12,4 +12,6 @@ type Registration struct {
 	User          User      `gorm:"foreignKey:UserID"`
 	ArrivalDate   time.Time `json:"arrival_date"`
 	DepartureDate time.Time `json:"departure_date"`
+	FoodRestrictions string    `json:"food_restrictions"`
+	ChildrenCount    int       `json:"children_count"`
 }
