@@ -45,19 +45,21 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 		return nil, huma.Error400BadRequest("Arrival date cannot be after departure date")
 	}
 
-	registration := models.Registration{
-		UserID:           userID,
-		ArrivalDate:      input.Body.ArrivalDate,
-		DepartureDate:    input.Body.DepartureDate,
-		FoodRestrictions: input.Body.FoodRestrictions,
-		ChildrenCount:    input.Body.ChildrenCount,
+	var registration models.Registration
+	if err := h.db.FirstOrInit(&registration, models.Registration{UserID: userID}).Error; err != nil {
+		return nil, huma.Error500InternalServerError("Database error")
 	}
 
-	if err := h.db.Create(&registration).Error; err != nil {
-		return nil, huma.Error500InternalServerError("Failed to create registration")
+	registration.ArrivalDate = input.Body.ArrivalDate
+	registration.DepartureDate = input.Body.DepartureDate
+	registration.FoodRestrictions = input.Body.FoodRestrictions
+	registration.ChildrenCount = input.Body.ChildrenCount
+
+	if err := h.db.Save(&registration).Error; err != nil {
+		return nil, huma.Error500InternalServerError("Failed to save registration")
 	}
 
 	res := &RegistrationResponse{}
-	res.Body.Message = "Registration created successfully"
+	res.Body.Message = "Registration processed successfully"
 	return res, nil
 }

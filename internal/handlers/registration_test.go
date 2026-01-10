@@ -39,24 +39,43 @@ func TestHandleRegister(t *testing.T) {
 
 	resp, err := handler.HandleRegister(ctx, &reqBody)
 	if err != nil {
-		t.Fatalf("HandleRegister returned error: %v", err)
+		t.Fatalf("First HandleRegister returned error: %v", err)
 	}
 
 	if resp == nil {
-		t.Fatal("expected response, got nil")
+		t.Fatal("expected response from first call, got nil")
+	}
+
+	// Update data for second registration
+	reqBody.Body.ChildrenCount = 5
+	reqBody.Body.FoodRestrictions = "Vegan"
+
+	resp, err = handler.HandleRegister(ctx, &reqBody)
+	if err != nil {
+		t.Fatalf("Second HandleRegister (upsert) returned error: %v", err)
+	}
+
+	if resp == nil {
+		t.Fatal("expected response from second call, got nil")
 	}
 
 	// Verify DB entry
+	var count int64
+	db.Model(&models.Registration{}).Count(&count)
+	if count != 1 {
+		t.Errorf("expected 1 registration in DB, got %d", count)
+	}
+
 	var registration models.Registration
 	if err := db.Preload("User").First(&registration).Error; err != nil {
 		t.Fatalf("failed to find registration: %v", err)
 	}
 
-	if registration.FoodRestrictions != "No peanuts" {
-		t.Errorf("expected 'No peanuts', got '%s'", registration.FoodRestrictions)
+	if registration.FoodRestrictions != "Vegan" {
+		t.Errorf("expected 'Vegan', got '%s'", registration.FoodRestrictions)
 	}
 
-	if registration.ChildrenCount != 2 {
-		t.Errorf("expected 2 children, got %d", registration.ChildrenCount)
+	if registration.ChildrenCount != 5 {
+		t.Errorf("expected 5 children, got %d", registration.ChildrenCount)
 	}
 }
