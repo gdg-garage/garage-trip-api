@@ -8,6 +8,7 @@ import (
 
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
 	"github.com/golang-jwt/jwt/v5"
@@ -45,32 +46,43 @@ func NewAuthHandler(cfg *config.Config, db *gorm.DB) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	url := h.oauthConfig.AuthCodeURL("state", oauth2.AccessTypeOnline)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+type LoginResponse struct {
+	Location string `header:"Location"`
 }
 
-func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		http.Error(w, "Code not found", http.StatusBadRequest)
-		return
+func (h *AuthHandler) HandleLogin(ctx context.Context, input *struct{}) (*LoginResponse, error) {
+	url := h.oauthConfig.AuthCodeURL("state", oauth2.AccessTypeOnline)
+	return &LoginResponse{Location: url}, nil
+}
+
+type CallbackInput struct {
+	Code string `query:"code" doc:"OAuth2 callback code"`
+}
+
+type CallbackResponse struct {
+	SetCookie string `header:"Set-Cookie"`
+	Body      struct {
+		Message string `json:"message"`
+	}
+}
+
+func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) (*CallbackResponse, error) {
+	if input.Code == "" {
+		return nil, huma.Error400BadRequest("Code not found")
 	}
 
-	token, err := h.oauthConfig.Exchange(context.Background(), code)
+	token, err := h.oauthConfig.Exchange(ctx, input.Code)
 	if err != nil {
-		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
-		return
+		return nil, huma.Error500InternalServerError("Failed to exchange token")
 	}
 
-	client := h.oauthConfig.Client(context.Background(), token)
+	client := h.oauthConfig.Client(ctx, token)
 
 	// Check Guild Membership
 	if h.cfg.DiscordGuildID != "" {
 		guildsResp, err := client.Get(DiscordUserGuildsAPI)
 		if err != nil {
-			http.Error(w, "Failed to get user guilds", http.StatusInternalServerError)
-			return
+			return nil, huma.Error500InternalServerError("Failed to get user guilds")
 		}
 		defer guildsResp.Body.Close()
 
@@ -78,8 +90,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 			ID string `json:"id"`
 		}
 		if err := json.NewDecoder(guildsResp.Body).Decode(&guilds); err != nil {
-			http.Error(w, "Failed to decode user guilds", http.StatusInternalServerError)
-			return
+			return nil, huma.Error500InternalServerError("Failed to decode user guilds")
 		}
 
 		isMember := false
@@ -91,22 +102,14 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !isMember {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error":    "Forbidden",
-				"message":  "Access denied: You are not a member of the required Discord guild.",
-				"guild_id": h.cfg.DiscordGuildID,
-			})
-			return
+			return nil, huma.Error403Forbidden(fmt.Sprintf("Access denied: You are not a member of the required Discord guild: %s", h.cfg.DiscordGuildID))
 		}
 	}
 
 	// Get User Info
 	resp, err := client.Get(DiscordUserAPI)
 	if err != nil {
-		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
-		return
+		return nil, huma.Error500InternalServerError("Failed to get user info")
 	}
 	defer resp.Body.Close()
 
@@ -118,43 +121,40 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&discordUser); err != nil {
-		http.Error(w, "Failed to decode user info", http.StatusInternalServerError)
-		return
+		return nil, huma.Error500InternalServerError("Failed to decode user info")
 	}
 
 	var user models.User
 	if err := h.db.FirstOrInit(&user, models.User{DiscordID: discordUser.ID}).Error; err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
+		return nil, huma.Error500InternalServerError("Database error")
 	}
 	user.Username = discordUser.Username
 	user.Email = discordUser.Email
 	user.Avatar = discordUser.Avatar
 
 	if err := h.db.Save(&user).Error; err != nil {
-		http.Error(w, "Failed to save user", http.StatusInternalServerError)
-		return
+		return nil, huma.Error500InternalServerError("Failed to save user")
 	}
 
 	// Generate JWT
 	jwtToken, err := h.GenerateToken(user.ID)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
+		return nil, huma.Error500InternalServerError("Failed to generate token")
 	}
 
-	// Set Cookie
-	http.SetCookie(w, &http.Cookie{
+	cookie := &http.Cookie{
 		Name:     "auth_token",
 		Value:    jwtToken,
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
 		Path:     "/",
-		// Secure:   true, // Uncomment in production wi
-		// th HTTPS
-	})
+	}
 
-	w.Write([]byte(fmt.Sprintf("Welcome %s! You are logged in.", user.Username)))
+	res := &CallbackResponse{}
+	res.Body.Message = fmt.Sprintf("Welcome %s! You are logged in.", user.Username)
+	res.SetCookie = cookie.String()
+
+	return res, nil
 }
 
 func (h *AuthHandler) GenerateToken(userID uint) (string, error) {

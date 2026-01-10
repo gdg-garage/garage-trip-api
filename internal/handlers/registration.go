@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
-	"net/http"
+	"context"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
 	"gorm.io/gorm"
@@ -19,45 +19,45 @@ func NewRegistrationHandler(db *gorm.DB) *RegistrationHandler {
 }
 
 type RegistrationRequest struct {
-	ArrivalDate      time.Time `json:"arrival_date"`
-	DepartureDate    time.Time `json:"departure_date"`
-	FoodRestrictions string    `json:"food_restrictions"`
-	ChildrenCount    int       `json:"children_count"`
+	Body struct {
+		ArrivalDate      time.Time `json:"arrival_date" doc:"Date of arrival"`
+		DepartureDate    time.Time `json:"departure_date" doc:"Date of departure"`
+		FoodRestrictions string    `json:"food_restrictions" doc:"Food restrictions or allergies"`
+		ChildrenCount    int       `json:"children_count" doc:"Number of children joining"`
+	}
 }
 
-func (h *RegistrationHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
+type RegistrationResponse struct {
+	Body struct {
+		Message string `json:"message"`
+	}
+}
+
+func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *RegistrationRequest) (*RegistrationResponse, error) {
 	// Get UserID from context
-	userID, ok := r.Context().Value(auth.UserIDKey).(uint)
+	userID, ok := ctx.Value(auth.UserIDKey).(uint)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return nil, huma.Error401Unauthorized("Unauthorized")
 	}
 
-	var req RegistrationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Validate dates (basic check)
-	if req.ArrivalDate.After(req.DepartureDate) {
-		http.Error(w, "Arrival date cannot be after departure date", http.StatusBadRequest)
-		return
+	// Validate dates
+	if input.Body.ArrivalDate.After(input.Body.DepartureDate) {
+		return nil, huma.Error400BadRequest("Arrival date cannot be after departure date")
 	}
 
 	registration := models.Registration{
 		UserID:           userID,
-		ArrivalDate:      req.ArrivalDate,
-		DepartureDate:    req.DepartureDate,
-		FoodRestrictions: req.FoodRestrictions,
-		ChildrenCount:    req.ChildrenCount,
+		ArrivalDate:      input.Body.ArrivalDate,
+		DepartureDate:    input.Body.DepartureDate,
+		FoodRestrictions: input.Body.FoodRestrictions,
+		ChildrenCount:    input.Body.ChildrenCount,
 	}
 
 	if err := h.db.Create(&registration).Error; err != nil {
-		http.Error(w, "Failed to create registration", http.StatusInternalServerError)
-		return
+		return nil, huma.Error500InternalServerError("Failed to create registration")
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Registration created successfully"))
+	res := &RegistrationResponse{}
+	res.Body.Message = "Registration created successfully"
+	return res, nil
 }

@@ -1,11 +1,7 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -32,25 +28,22 @@ func TestHandleRegister(t *testing.T) {
 
 	arrival := time.Now().Add(24 * time.Hour)
 	departure := time.Now().Add(48 * time.Hour)
-	reqBody := RegistrationRequest{
-		ArrivalDate:      arrival,
-		DepartureDate:    departure,
-		FoodRestrictions: "No peanuts",
-		ChildrenCount:    2,
+	reqBody := RegistrationRequest{}
+	reqBody.Body.ArrivalDate = arrival
+	reqBody.Body.DepartureDate = departure
+	reqBody.Body.FoodRestrictions = "No peanuts"
+	reqBody.Body.ChildrenCount = 2
+
+	// Create context with UserID
+	ctx := context.WithValue(context.Background(), auth.UserIDKey, user.ID)
+
+	resp, err := handler.HandleRegister(ctx, &reqBody)
+	if err != nil {
+		t.Fatalf("HandleRegister returned error: %v", err)
 	}
 
-	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", "/register", bytes.NewBuffer(body))
-
-	// Add UserID to context
-	ctx := context.WithValue(req.Context(), auth.UserIDKey, user.ID)
-	req = req.WithContext(ctx)
-
-	rr := httptest.NewRecorder()
-	handler.HandleRegister(rr, req)
-
-	if rr.Code != http.StatusCreated {
-		t.Errorf("expected status 201, got %d", rr.Code)
+	if resp == nil {
+		t.Fatal("expected response, got nil")
 	}
 
 	// Verify DB entry
