@@ -46,17 +46,38 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 	}
 
 	var registration models.Registration
-	if err := h.db.FirstOrInit(&registration, models.Registration{UserID: userID}).Error; err != nil {
-		return nil, huma.Error500InternalServerError("Database error")
-	}
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.FirstOrInit(&registration, models.Registration{UserID: userID}).Error; err != nil {
+			return err
+		}
 
-	registration.ArrivalDate = input.Body.ArrivalDate
-	registration.DepartureDate = input.Body.DepartureDate
-	registration.FoodRestrictions = input.Body.FoodRestrictions
-	registration.ChildrenCount = input.Body.ChildrenCount
+		registration.RegistrationFields = models.RegistrationFields{
+			ArrivalDate:      input.Body.ArrivalDate,
+			DepartureDate:    input.Body.DepartureDate,
+			FoodRestrictions: input.Body.FoodRestrictions,
+			ChildrenCount:    input.Body.ChildrenCount,
+		}
 
-	if err := h.db.Save(&registration).Error; err != nil {
-		return nil, huma.Error500InternalServerError("Failed to save registration")
+		if err := tx.Save(&registration).Error; err != nil {
+			return err
+		}
+
+		// Save history snapshot
+		history := models.RegistrationHistory{
+			RegistrationID:     registration.ID,
+			UserID:             registration.UserID,
+			RegistrationFields: registration.RegistrationFields,
+		}
+
+		if err := tx.Create(&history).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to process registration: " + err.Error())
 	}
 
 	res := &RegistrationResponse{}

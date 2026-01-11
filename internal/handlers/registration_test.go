@@ -18,7 +18,7 @@ func TestHandleRegister(t *testing.T) {
 		t.Fatalf("failed to connect database: %v", err)
 	}
 
-	db.AutoMigrate(&models.Registration{}, &models.User{})
+	db.AutoMigrate(&models.Registration{}, &models.User{}, &models.RegistrationHistory{})
 
 	// Create a dummy user
 	user := models.User{DiscordID: "123456789"}
@@ -66,6 +66,12 @@ func TestHandleRegister(t *testing.T) {
 		t.Errorf("expected 1 registration in DB, got %d", count)
 	}
 
+	var historyCount int64
+	db.Model(&models.RegistrationHistory{}).Count(&historyCount)
+	if historyCount != 2 {
+		t.Errorf("expected 2 history entries in DB, got %d", historyCount)
+	}
+
 	var registration models.Registration
 	if err := db.Preload("User").First(&registration).Error; err != nil {
 		t.Fatalf("failed to find registration: %v", err)
@@ -77,5 +83,18 @@ func TestHandleRegister(t *testing.T) {
 
 	if registration.ChildrenCount != 5 {
 		t.Errorf("expected 5 children, got %d", registration.ChildrenCount)
+	}
+
+	var histories []models.RegistrationHistory
+	db.Order("id asc").Find(&histories)
+	if len(histories) != 2 {
+		t.Fatalf("expected 2 history entries, got %d", len(histories))
+	}
+
+	if histories[0].FoodRestrictions != "No peanuts" {
+		t.Errorf("expected first history to have 'No peanuts', got '%s'", histories[0].FoodRestrictions)
+	}
+	if histories[1].FoodRestrictions != "Vegan" {
+		t.Errorf("expected second history to have 'Vegan', got '%s'", histories[1].FoodRestrictions)
 	}
 }
