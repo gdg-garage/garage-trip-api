@@ -97,4 +97,21 @@ func TestHandleRegister(t *testing.T) {
 	if histories[1].FoodRestrictions != "Vegan" {
 		t.Errorf("expected second history to have 'Vegan', got '%s'", histories[1].FoodRestrictions)
 	}
+
+	// Test cancellation
+	reqBody.Body.Cancelled = true
+	_, err = handler.HandleRegister(ctx, &reqBody)
+	if err != nil {
+		t.Fatalf("Third HandleRegister (cancel) returned error: %v", err)
+	}
+
+	db.First(&registration)
+	if !registration.Cancelled {
+		t.Errorf("expected registration to be cancelled")
+	}
+
+	db.Model(&models.RegistrationHistory{}).Count(&historyCount)
+	if historyCount != 3 {
+		t.Errorf("expected 3 history entries in DB, got %d", historyCount)
+	}
 }

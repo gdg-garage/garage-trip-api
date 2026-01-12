@@ -24,6 +24,7 @@ type RegistrationRequest struct {
 		DepartureDate    time.Time `json:"departure_date" doc:"Date of departure"`
 		FoodRestrictions string    `json:"food_restrictions" doc:"Food restrictions or allergies"`
 		ChildrenCount    int       `json:"children_count" doc:"Number of children joining"`
+		Cancelled        bool      `json:"cancelled" doc:"Whether the registration is cancelled"`
 	}
 }
 
@@ -56,6 +57,7 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 			DepartureDate:    input.Body.DepartureDate,
 			FoodRestrictions: input.Body.FoodRestrictions,
 			ChildrenCount:    input.Body.ChildrenCount,
+			Cancelled:        input.Body.Cancelled,
 		}
 
 		if err := tx.Save(&registration).Error; err != nil {

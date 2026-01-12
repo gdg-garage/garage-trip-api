@@ -11,6 +11,7 @@ type RegistrationFields struct {
 	DepartureDate    time.Time `json:"departure_date"`
 	FoodRestrictions string    `json:"food_restrictions"`
 	ChildrenCount    int       `json:"children_count"`
+	Cancelled        bool      `json:"cancelled"`
 }
 
 type Registration struct {
