@@ -9,6 +9,7 @@ import (
 	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/database"
 	"github.com/gdg-garage/garage-trip-api/internal/handlers"
+	"github.com/gdg-garage/garage-trip-api/internal/notifier"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -21,8 +22,13 @@ func main() {
 
 	// Initialize Auth Handler
 	// Initialize Handlers
+	discordNotifier, err := notifier.NewDiscordNotifier(cfg)
+	if err != nil {
+		log.Printf("Discord notifier not initialized: %v", err)
+	}
+
 	authHandler := auth.NewAuthHandler(cfg, db)
-	registrationHandler := handlers.NewRegistrationHandler(db)
+	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier)
 
 	// Initialize Router
 	r := chi.NewRouter()

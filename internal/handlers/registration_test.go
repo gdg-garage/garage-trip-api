@@ -24,7 +24,7 @@ func TestHandleRegister(t *testing.T) {
 	user := models.User{DiscordID: "123456789"}
 	db.Create(&user)
 
-	handler := NewRegistrationHandler(db)
+	handler := NewRegistrationHandler(db, nil)
 
 	arrival := time.Now().Add(24 * time.Hour)
 	departure := time.Now().Add(48 * time.Hour)

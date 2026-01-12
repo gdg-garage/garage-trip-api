@@ -7,15 +7,17 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
+	"github.com/gdg-garage/garage-trip-api/internal/notifier"
 	"gorm.io/gorm"
 )
 
 type RegistrationHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	notifier notifier.Notifier
 }
 
-func NewRegistrationHandler(db *gorm.DB) *RegistrationHandler {
-	return &RegistrationHandler{db: db}
+func NewRegistrationHandler(db *gorm.DB, notifier notifier.Notifier) *RegistrationHandler {
+	return &RegistrationHandler{db: db, notifier: notifier}
 }
 
 type RegistrationRequest struct {
@@ -80,6 +82,14 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Failed to process registration: " + err.Error())
+	}
+
+	// Fetch user for notification
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err == nil {
+		if h.notifier != nil {
+			_ = h.notifier.NotifyRegistration(user, registration)
+		}
 	}
 
 	res := &RegistrationResponse{}

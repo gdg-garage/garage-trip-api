@@ -7,13 +7,15 @@ import (
 )
 
 type Config struct {
-	Port                string `mapstructure:"PORT"`
-	DatabasePath        string `mapstructure:"DATABASE_PATH"`
-	DiscordClientID     string `mapstructure:"DISCORD_CLIENT_ID"`
-	DiscordClientSecret string `mapstructure:"DISCORD_CLIENT_SECRET"`
-	DiscordRedirectURL  string `mapstructure:"DISCORD_REDIRECT_URL"`
-	DiscordGuildID      string `mapstructure:"DISCORD_GUILD_ID"`
-	JWTSecret           string `mapstructure:"JWT_SECRET"`
+	Port                          string `mapstructure:"PORT"`
+	DatabasePath                  string `mapstructure:"DATABASE_PATH"`
+	DiscordClientID               string `mapstructure:"DISCORD_CLIENT_ID"`
+	DiscordClientSecret           string `mapstructure:"DISCORD_CLIENT_SECRET"`
+	DiscordRedirectURL            string `mapstructure:"DISCORD_REDIRECT_URL"`
+	DiscordGuildID                string `mapstructure:"DISCORD_GUILD_ID"`
+	DiscordBotToken               string `mapstructure:"DISCORD_BOT_TOKEN"`
+	DiscordNotificationsChannelID string `mapstructure:"DISCORD_NOTIFICATIONS_CHANNEL_ID"`
+	JWTSecret                     string `mapstructure:"JWT_SECRET"`
 }
 
 func LoadConfig() *Config {
@@ -25,6 +27,8 @@ func LoadConfig() *Config {
 	viper.BindEnv("DISCORD_CLIENT_ID")
 	viper.BindEnv("DISCORD_CLIENT_SECRET")
 	viper.BindEnv("DISCORD_GUILD_ID")
+	viper.BindEnv("DISCORD_BOT_TOKEN")
+	viper.BindEnv("DISCORD_NOTIFICATIONS_CHANNEL_ID")
 	viper.BindEnv("JWT_SECRET")
 
 	viper.AutomaticEnv()
