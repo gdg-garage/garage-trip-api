@@ -27,7 +27,7 @@ func TestHandleMe(t *testing.T) {
 	db.Create(&user)
 
 	cfg := &config.Config{JWTSecret: "test-secret"}
-	handler := NewAuthHandler(cfg, db)
+	handler := NewAuthHandler(cfg, db, nil)
 
 	t.Run("Authenticated", func(t *testing.T) {
 		token, _ := handler.GenerateToken(user.ID)

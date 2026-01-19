@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
@@ -28,9 +30,10 @@ type AuthHandler struct {
 	oauthConfig *oauth2.Config
 	db          *gorm.DB
 	cfg         *config.Config
+	discord     *discordgo.Session
 }
 
-func NewAuthHandler(cfg *config.Config, db *gorm.DB) *AuthHandler {
+func NewAuthHandler(cfg *config.Config, db *gorm.DB, discord *discordgo.Session) *AuthHandler {
 	return &AuthHandler{
 		oauthConfig: &oauth2.Config{
 			ClientID:     cfg.DiscordClientID,
@@ -42,8 +45,9 @@ func NewAuthHandler(cfg *config.Config, db *gorm.DB) *AuthHandler {
 				TokenURL: DiscordTokenEndpoint,
 			},
 		},
-		db:  db,
-		cfg: cfg,
+		db:      db,
+		cfg:     cfg,
+		discord: discord,
 	}
 }
 
@@ -72,6 +76,12 @@ type MeResponse struct {
 	}
 }
 
+type PaidResponse struct {
+	Body struct {
+		Paid bool `json:"paid"`
+	}
+}
+
 type AuthInput struct {
 	Cookie string `header:"Cookie" doc:"Authentication cookie containing the auth_token JWT" example:"auth_token=..."`
 }
@@ -90,6 +100,63 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeRespon
 	res := &MeResponse{}
 	res.Body.Username = user.Username
 	res.Body.Email = user.Email
+
+	return res, nil
+}
+
+func (h *AuthHandler) HandlePaid(ctx context.Context, input *AuthInput) (*PaidResponse, error) {
+	userID, err := h.Authorize(input.Cookie)
+	if err != nil {
+		return nil, err
+	}
+
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return nil, huma.Error404NotFound("User not found")
+	}
+
+	res := &PaidResponse{}
+	res.Body.Paid = false
+
+	if h.discord == nil || h.cfg.DiscordGuildID == "" {
+		return res, nil
+	}
+
+	// 1. Get Role ID
+	roles, err := h.discord.GuildRoles(h.cfg.DiscordGuildID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch guild roles: " + err.Error())
+	}
+
+	roleID := ""
+	const paidRoleName = "g::t::7.0.0::paid"
+	for _, r := range roles {
+		if r.Name == paidRoleName {
+			roleID = r.ID
+			break
+		}
+	}
+
+	if roleID == "" {
+		log.Printf("Role: %s not found\n", paidRoleName)
+		return res, nil
+	}
+
+	// 2. Get Member Information
+	member, err := h.discord.GuildMember(h.cfg.DiscordGuildID, user.DiscordID)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return res, nil
+		}
+		return nil, huma.Error500InternalServerError("Failed to fetch guild member: " + err.Error())
+	}
+
+	for _, r := range member.Roles {
+		if r == roleID {
+			res.Body.Paid = true
+			break
+		}
+	}
 
 	return res, nil
 }

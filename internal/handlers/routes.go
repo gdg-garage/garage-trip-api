@@ -46,5 +46,8 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 		huma.Get(api, "/history", registrationHandler.HandleHistory, func(o *huma.Operation) {
 			o.Security = []map[string][]string{{"cookieAuth": {}}}
 		})
+		huma.Get(api, "/paid", authHandler.HandlePaid, func(o *huma.Operation) {
+			o.Security = []map[string][]string{{"cookieAuth": {}}}
+		})
 	})
 }

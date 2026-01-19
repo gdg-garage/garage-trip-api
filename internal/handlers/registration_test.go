@@ -25,7 +25,7 @@ func TestHandleRegister(t *testing.T) {
 	user := models.User{DiscordID: "123456789"}
 	db.Create(&user)
 
-	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db)
+	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db, nil)
 	handler := NewRegistrationHandler(db, nil, authHandler)
 
 	arrival := time.Now().Add(24 * time.Hour)

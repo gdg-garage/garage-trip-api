@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
 	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/database"
@@ -20,14 +21,22 @@ func main() {
 	// Connect to Database
 	db := database.Connect(cfg)
 
-	// Initialize Auth Handler
-	// Initialize Handlers
-	discordNotifier, err := notifier.NewDiscordNotifier(cfg)
-	if err != nil {
-		log.Printf("Discord notifier not initialized: %v", err)
+	// Initialize Notifier
+	var discordSession *discordgo.Session
+	var err error
+	if cfg.DiscordBotToken != "" {
+		discordSession, err = discordgo.New("Bot " + cfg.DiscordBotToken)
+		if err != nil {
+			log.Fatalf("Failed to create Discord session: %v", err)
+		}
 	}
 
-	authHandler := auth.NewAuthHandler(cfg, db)
+	var discordNotifier *notifier.DiscordNotifier
+	if discordSession != nil && cfg.DiscordNotificationsChannelID != "" {
+		discordNotifier = notifier.NewDiscordNotifier(discordSession, cfg.DiscordNotificationsChannelID)
+	}
+
+	authHandler := auth.NewAuthHandler(cfg, db, discordSession)
 	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier, authHandler)
 
 	// Initialize Router
