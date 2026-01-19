@@ -33,7 +33,7 @@ func main() {
 
 	var discordNotifier *notifier.DiscordNotifier
 	if discordSession != nil && cfg.DiscordNotificationsChannelID != "" {
-		discordNotifier = notifier.NewDiscordNotifier(discordSession, cfg.DiscordNotificationsChannelID)
+		discordNotifier = notifier.NewDiscordNotifier(discordSession, cfg.DiscordNotificationsChannelID, cfg.DiscordGuildID)
 	}
 
 	authHandler := auth.NewAuthHandler(cfg, db, discordSession)

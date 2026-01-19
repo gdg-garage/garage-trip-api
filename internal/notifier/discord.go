@@ -15,12 +15,14 @@ type Notifier interface {
 type DiscordNotifier struct {
 	session   *discordgo.Session
 	channelID string
+	guildID   string
 }
 
-func NewDiscordNotifier(session *discordgo.Session, channelID string) *DiscordNotifier {
+func NewDiscordNotifier(session *discordgo.Session, channelID string, guildID string) *DiscordNotifier {
 	return &DiscordNotifier{
 		session:   session,
 		channelID: channelID,
+		guildID:   guildID,
 	}
 }
 
@@ -30,6 +32,39 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 	}
 	if n.channelID == "" {
 		return fmt.Errorf("discord channel ID is empty")
+	}
+
+	// Role Management
+	if n.guildID != "" {
+		roleName := "g::t::7.0.0"
+		roles, err := n.session.GuildRoles(n.guildID)
+		if err != nil {
+			log.Printf("Failed to fetch guild roles: %v", err)
+		} else {
+			var roleID string
+			for _, r := range roles {
+				if r.Name == roleName {
+					roleID = r.ID
+					break
+				}
+			}
+
+			if roleID != "" {
+				if registration.Cancelled {
+					err = n.session.GuildMemberRoleRemove(n.guildID, user.DiscordID, roleID)
+					if err != nil {
+						log.Printf("Failed to remove role: %v", err)
+					}
+				} else {
+					err = n.session.GuildMemberRoleAdd(n.guildID, user.DiscordID, roleID)
+					if err != nil {
+						log.Printf("Failed to add role: %v", err)
+					}
+				}
+			} else {
+				log.Printf("Role %s not found in guild %s", roleName, n.guildID)
+			}
+		}
 	}
 
 	status := "registered/updated registration"
