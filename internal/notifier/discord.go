@@ -25,9 +25,16 @@ func NewDiscordNotifier(session *discordgo.Session, channelID string) *DiscordNo
 }
 
 func (n *DiscordNotifier) NotifyRegistration(user models.User, registration models.Registration) error {
+	if n.session == nil {
+		return fmt.Errorf("discord session is nil")
+	}
+	if n.channelID == "" {
+		return fmt.Errorf("discord channel ID is empty")
+	}
+
 	status := "registered/updated registration"
 	if registration.Cancelled {
-		status = "cancelled registration"
+		status = "cancelled registration 😢 👎"
 	}
 
 	noteStr := ""
@@ -35,7 +42,7 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 		noteStr = fmt.Sprintf("\n**Note:** %s", registration.Note)
 	}
 
-	message := fmt.Sprintf("🔔 **Registration Update**\n**User:** %s (<@%s>)\n**Status:** %s\n**Dates:** %s - %s\n**Children:** %d\n**Food Restrictions:** %s%s",
+	message := fmt.Sprintf("🎉 **Registration Update**\n**User:** %s (<@%s>)\n**Status:** %s\n**Dates:** %s - %s\n**Children:** %d\n**Food Restrictions:** %s%s",
 		user.Username,
 		user.DiscordID,
 		status,
