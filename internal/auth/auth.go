@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"time"
 
@@ -47,16 +48,90 @@ func NewAuthHandler(cfg *config.Config, db *gorm.DB) *AuthHandler {
 }
 
 type LoginResponse struct {
+	Status   int    `header:"-" status:"307"`
 	Location string `header:"Location"`
 }
 
 func (h *AuthHandler) HandleLogin(ctx context.Context, input *struct{}) (*LoginResponse, error) {
 	url := h.oauthConfig.AuthCodeURL("state", oauth2.AccessTypeOnline)
-	return &LoginResponse{Location: url}, nil
+	fmt.Printf("Login URL: %s\n", url)
+	return &LoginResponse{
+		Status:   307,
+		Location: url,
+	}, nil
 }
 
 type CallbackInput struct {
 	Code string `query:"code" doc:"OAuth2 callback code"`
+}
+
+type MeResponse struct {
+	Body struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
+}
+
+type AuthInput struct {
+	Cookie string `header:"Cookie" doc:"Authentication cookie containing the auth_token JWT" example:"auth_token=..."`
+}
+
+func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeResponse, error) {
+	userID, err := h.Authorize(input.Cookie)
+	if err != nil {
+		return nil, err
+	}
+
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return nil, huma.Error404NotFound("User not found")
+	}
+
+	res := &MeResponse{}
+	res.Body.Username = user.Username
+	res.Body.Email = user.Email
+
+	return res, nil
+}
+
+// Authorize parses the auth_token from a Cookie header string
+func (h *AuthHandler) Authorize(cookieHeader string) (uint, error) {
+	if cookieHeader == "" {
+		return 0, huma.Error401Unauthorized("Unauthorized: No cookies found")
+	}
+
+	cookieValue := ""
+	parts := strings.Split(cookieHeader, ";")
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if strings.HasPrefix(p, "auth_token=") {
+			cookieValue = strings.TrimPrefix(p, "auth_token=")
+			break
+		}
+	}
+
+	if cookieValue == "" {
+		return 0, huma.Error401Unauthorized("Unauthorized: No token found")
+	}
+
+	token, err := jwt.Parse(cookieValue, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(h.cfg.JWTSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return 0, huma.Error401Unauthorized("Unauthorized: Invalid token")
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		if userIDFloat, ok := claims["user_id"].(float64); ok {
+			return uint(userIDFloat), nil
+		}
+	}
+
+	return 0, huma.Error401Unauthorized("Unauthorized")
 }
 
 type CallbackResponse struct {
@@ -131,6 +206,8 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 	user.Username = discordUser.Username
 	user.Email = discordUser.Email
 	user.Avatar = discordUser.Avatar
+
+	fmt.Printf("User logged in: %s (Discord ID: %s)\n", user.Username, user.DiscordID)
 
 	if err := h.db.Save(&user).Error; err != nil {
 		return nil, huma.Error500InternalServerError("Failed to save user")

@@ -12,15 +12,17 @@ import (
 )
 
 type RegistrationHandler struct {
-	db       *gorm.DB
-	notifier notifier.Notifier
+	db          *gorm.DB
+	notifier    notifier.Notifier
+	authHandler *auth.AuthHandler
 }
 
-func NewRegistrationHandler(db *gorm.DB, notifier notifier.Notifier) *RegistrationHandler {
-	return &RegistrationHandler{db: db, notifier: notifier}
+func NewRegistrationHandler(db *gorm.DB, notifier notifier.Notifier, authHandler *auth.AuthHandler) *RegistrationHandler {
+	return &RegistrationHandler{db: db, notifier: notifier, authHandler: authHandler}
 }
 
 type RegistrationRequest struct {
+	auth.AuthInput
 	Body struct {
 		ArrivalDate      time.Time `json:"arrival_date" doc:"Date of arrival"`
 		DepartureDate    time.Time `json:"departure_date" doc:"Date of departure"`
@@ -37,10 +39,10 @@ type RegistrationResponse struct {
 }
 
 func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *RegistrationRequest) (*RegistrationResponse, error) {
-	// Get UserID from context
-	userID, ok := ctx.Value(auth.UserIDKey).(uint)
-	if !ok {
-		return nil, huma.Error401Unauthorized("Unauthorized")
+	// Get UserID
+	userID, err := h.authHandler.Authorize(input.Cookie)
+	if err != nil {
+		return nil, err
 	}
 
 	// Validate dates
@@ -49,7 +51,7 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 	}
 
 	var registration models.Registration
-	err := h.db.Transaction(func(tx *gorm.DB) error {
+	err = h.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.FirstOrInit(&registration, models.Registration{UserID: userID}).Error; err != nil {
 			return err
 		}
@@ -97,7 +99,9 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 	return res, nil
 }
 
-type HistoryRequest struct{}
+type HistoryRequest struct {
+	auth.AuthInput
+}
 
 type HistoryResponse struct {
 	Body struct {
@@ -106,10 +110,10 @@ type HistoryResponse struct {
 }
 
 func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryRequest) (*HistoryResponse, error) {
-	// Get UserID from context
-	userID, ok := ctx.Value(auth.UserIDKey).(uint)
-	if !ok {
-		return nil, huma.Error401Unauthorized("Unauthorized")
+	// Get UserID
+	userID, err := h.authHandler.Authorize(input.Cookie)
+	if err != nil {
+		return nil, err
 	}
 
 	var history []models.RegistrationHistory

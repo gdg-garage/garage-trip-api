@@ -16,6 +16,13 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 
 	// Initialize Huma API
 	config := huma.DefaultConfig("Garage Trip API", "1.0.0")
+	config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"cookieAuth": {
+			Type: "apiKey",
+			In:   "cookie",
+			Name: "auth_token",
+		},
+	}
 	api := humachi.New(r, config)
 
 	// Public routes
@@ -30,7 +37,14 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 	// Protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(authHandler.JWTMiddleware)
-		huma.Post(api, "/register", registrationHandler.HandleRegister)
-		huma.Get(api, "/history", registrationHandler.HandleHistory)
+		huma.Get(api, "/me", authHandler.HandleMe, func(o *huma.Operation) {
+			o.Security = []map[string][]string{{"cookieAuth": {}}}
+		})
+		huma.Post(api, "/register", registrationHandler.HandleRegister, func(o *huma.Operation) {
+			o.Security = []map[string][]string{{"cookieAuth": {}}}
+		})
+		huma.Get(api, "/history", registrationHandler.HandleHistory, func(o *huma.Operation) {
+			o.Security = []map[string][]string{{"cookieAuth": {}}}
+		})
 	})
 }

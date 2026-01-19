@@ -28,7 +28,7 @@ func main() {
 	}
 
 	authHandler := auth.NewAuthHandler(cfg, db)
-	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier)
+	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier, authHandler)
 
 	// Initialize Router
 	r := chi.NewRouter()

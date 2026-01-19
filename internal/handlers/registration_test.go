@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
+	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -24,7 +25,8 @@ func TestHandleRegister(t *testing.T) {
 	user := models.User{DiscordID: "123456789"}
 	db.Create(&user)
 
-	handler := NewRegistrationHandler(db, nil)
+	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db)
+	handler := NewRegistrationHandler(db, nil, authHandler)
 
 	arrival := time.Now().Add(24 * time.Hour)
 	departure := time.Now().Add(48 * time.Hour)
@@ -34,10 +36,11 @@ func TestHandleRegister(t *testing.T) {
 	reqBody.Body.FoodRestrictions = "No peanuts"
 	reqBody.Body.ChildrenCount = 2
 
-	// Create context with UserID
-	ctx := context.WithValue(context.Background(), auth.UserIDKey, user.ID)
+	// Generate a token for the test
+	token, _ := authHandler.GenerateToken(user.ID)
+	reqBody.Cookie = "auth_token=" + token
 
-	resp, err := handler.HandleRegister(ctx, &reqBody)
+	resp, err := handler.HandleRegister(context.Background(), &reqBody)
 	if err != nil {
 		t.Fatalf("First HandleRegister returned error: %v", err)
 	}
@@ -50,7 +53,7 @@ func TestHandleRegister(t *testing.T) {
 	reqBody.Body.ChildrenCount = 5
 	reqBody.Body.FoodRestrictions = "Vegan"
 
-	resp, err = handler.HandleRegister(ctx, &reqBody)
+	resp, err = handler.HandleRegister(context.Background(), &reqBody)
 	if err != nil {
 		t.Fatalf("Second HandleRegister (upsert) returned error: %v", err)
 	}
@@ -100,7 +103,7 @@ func TestHandleRegister(t *testing.T) {
 
 	// Test cancellation
 	reqBody.Body.Cancelled = true
-	_, err = handler.HandleRegister(ctx, &reqBody)
+	_, err = handler.HandleRegister(context.Background(), &reqBody)
 	if err != nil {
 		t.Fatalf("Third HandleRegister (cancel) returned error: %v", err)
 	}
