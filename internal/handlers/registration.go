@@ -96,3 +96,28 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 	res.Body.Message = "Registration processed successfully"
 	return res, nil
 }
+
+type HistoryRequest struct{}
+
+type HistoryResponse struct {
+	Body struct {
+		History []models.RegistrationHistory `json:"history" doc:"List of registration changes, newest first"`
+	}
+}
+
+func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryRequest) (*HistoryResponse, error) {
+	// Get UserID from context
+	userID, ok := ctx.Value(auth.UserIDKey).(uint)
+	if !ok {
+		return nil, huma.Error401Unauthorized("Unauthorized")
+	}
+
+	var history []models.RegistrationHistory
+	if err := h.db.Where("user_id = ?", userID).Order("created_at DESC").Find(&history).Error; err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch history: " + err.Error())
+	}
+
+	res := &HistoryResponse{}
+	res.Body.History = history
+	return res, nil
+}

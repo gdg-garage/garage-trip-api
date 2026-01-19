@@ -31,5 +31,6 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 	r.Group(func(r chi.Router) {
 		r.Use(authHandler.JWTMiddleware)
 		huma.Post(api, "/register", registrationHandler.HandleRegister)
+		huma.Get(api, "/history", registrationHandler.HandleHistory)
 	})
 }
