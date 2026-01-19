@@ -266,9 +266,10 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 	}
 
 	var user models.User
-	if err := h.db.FirstOrInit(&user, models.User{DiscordID: discordUser.ID}).Error; err != nil {
+	if err := h.db.Where("discord_id = ?", discordUser.ID).FirstOrInit(&user).Error; err != nil {
 		return nil, huma.Error500InternalServerError("Database error")
 	}
+	user.DiscordID = discordUser.ID
 	user.Username = discordUser.Username
 	user.Email = discordUser.Email
 	user.Avatar = discordUser.Avatar

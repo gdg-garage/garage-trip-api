@@ -51,11 +51,16 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 		return nil, huma.Error400BadRequest("Arrival date cannot be after departure date")
 	}
 
+	if userID == 0 {
+		return nil, huma.Error401Unauthorized("Unauthorized: Invalid user ID")
+	}
+
 	var registration models.Registration
 	err = h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.FirstOrInit(&registration, models.Registration{UserID: userID}).Error; err != nil {
+		if err := tx.Where("user_id = ?", userID).FirstOrInit(&registration).Error; err != nil {
 			return err
 		}
+		registration.UserID = userID
 
 		registration.RegistrationFields = models.RegistrationFields{
 			ArrivalDate:      input.Body.ArrivalDate,

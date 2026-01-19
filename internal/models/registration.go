@@ -17,7 +17,7 @@ type RegistrationFields struct {
 
 type Registration struct {
 	gorm.Model
-	UserID             uint `json:"user_id"`
+	UserID             uint `json:"user_id" gorm:"uniqueIndex"`
 	User               User `gorm:"foreignKey:UserID"`
 	RegistrationFields `gorm:"embedded"`
 }
