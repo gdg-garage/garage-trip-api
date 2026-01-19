@@ -29,6 +29,7 @@ type RegistrationRequest struct {
 		FoodRestrictions string    `json:"food_restrictions" doc:"Food restrictions or allergies"`
 		ChildrenCount    int       `json:"children_count" doc:"Number of children joining"`
 		Cancelled        bool      `json:"cancelled" doc:"Whether the registration is cancelled"`
+		Note             string    `json:"note" doc:"Additional notes"`
 	}
 }
 
@@ -62,6 +63,7 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 			FoodRestrictions: input.Body.FoodRestrictions,
 			ChildrenCount:    input.Body.ChildrenCount,
 			Cancelled:        input.Body.Cancelled,
+			Note:             input.Body.Note,
 		}
 
 		if err := tx.Save(&registration).Error; err != nil {
@@ -123,5 +125,48 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 
 	res := &HistoryResponse{}
 	res.Body.History = history
+	return res, nil
+}
+
+type ListRegistrationsRequest struct {
+	auth.AuthInput `doc:"Restricted to users with the 'g::t::orgs' role"`
+}
+
+type ListRegistrationsResponse struct {
+	Body struct {
+		Registrations []models.Registration `json:"registrations" doc:"List of all registrations"`
+	}
+}
+
+func (h *RegistrationHandler) HandleListRegistrations(ctx context.Context, input *ListRegistrationsRequest) (*ListRegistrationsResponse, error) {
+	// 1. Authorize
+	userID, err := h.authHandler.Authorize(input.Cookie)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Get User to get DiscordID
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return nil, huma.Error404NotFound("User not found")
+	}
+
+	// 3. Check Role
+	hasRole, err := h.authHandler.CheckRole(user.DiscordID, "g::t::orgs")
+	if err != nil {
+		return nil, err
+	}
+	if !hasRole {
+		return nil, huma.Error403Forbidden("Access denied: missing g::t::orgs role")
+	}
+
+	// 4. Fetch all registrations
+	var registrations []models.Registration
+	if err := h.db.Preload("User").Find(&registrations).Error; err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch registrations: " + err.Error())
+	}
+
+	res := &ListRegistrationsResponse{}
+	res.Body.Registrations = registrations
 	return res, nil
 }

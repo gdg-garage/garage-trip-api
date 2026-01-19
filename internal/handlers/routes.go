@@ -46,7 +46,9 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 		huma.Get(api, "/history", registrationHandler.HandleHistory, func(o *huma.Operation) {
 			o.Security = []map[string][]string{{"cookieAuth": {}}}
 		})
-		huma.Get(api, "/paid", authHandler.HandlePaid, func(o *huma.Operation) {
+		huma.Get(api, "/registrations", registrationHandler.HandleListRegistrations, func(o *huma.Operation) {
+			o.Summary = "List all registrations"
+			o.Description = "Returns a list of all registrations. Restricted to users with the 'g::t::orgs' role."
 			o.Security = []map[string][]string{{"cookieAuth": {}}}
 		})
 	})

@@ -71,14 +71,10 @@ type CallbackInput struct {
 
 type MeResponse struct {
 	Body struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-	}
-}
-
-type PaidResponse struct {
-	Body struct {
-		Paid bool `json:"paid"`
+		Username     string               `json:"username"`
+		Email        string               `json:"email"`
+		Paid         bool                 `json:"paid"`
+		Registration *models.Registration `json:"registration,omitempty"`
 	}
 }
 
@@ -101,64 +97,67 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeRespon
 	res.Body.Username = user.Username
 	res.Body.Email = user.Email
 
+	// 1. Check Paid status
+	res.Body.Paid = h.isPaid(user.DiscordID)
+
+	// 2. Fetch Registration
+	var reg models.Registration
+	if err := h.db.Preload("User").Where("user_id = ?", user.ID).First(&reg).Error; err == nil {
+		res.Body.Registration = &reg
+	}
+
 	return res, nil
 }
 
-func (h *AuthHandler) HandlePaid(ctx context.Context, input *AuthInput) (*PaidResponse, error) {
-	userID, err := h.Authorize(input.Cookie)
+func (h *AuthHandler) isPaid(discordID string) bool {
+	hasRole, err := h.CheckRole(discordID, "g::t::7.0.0::paid")
 	if err != nil {
-		return nil, err
+		log.Printf("Error checking paid role: %v\n", err)
+		return false
 	}
+	return hasRole
+}
 
-	var user models.User
-	if err := h.db.First(&user, userID).Error; err != nil {
-		return nil, huma.Error404NotFound("User not found")
-	}
-
-	res := &PaidResponse{}
-	res.Body.Paid = false
-
+func (h *AuthHandler) CheckRole(discordID string, roleName string) (bool, error) {
 	if h.discord == nil || h.cfg.DiscordGuildID == "" {
-		return res, nil
+		return false, nil
 	}
 
 	// 1. Get Role ID
 	roles, err := h.discord.GuildRoles(h.cfg.DiscordGuildID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("Failed to fetch guild roles: " + err.Error())
+		return false, huma.Error500InternalServerError("Failed to fetch guild roles: " + err.Error())
 	}
 
 	roleID := ""
-	const paidRoleName = "g::t::7.0.0::paid"
 	for _, r := range roles {
-		if r.Name == paidRoleName {
+		if r.Name == roleName {
 			roleID = r.ID
 			break
 		}
 	}
 
 	if roleID == "" {
-		log.Printf("Role: %s not found\n", paidRoleName)
-		return res, nil
+		log.Printf("Role: %s not found\n", roleName)
+		return false, nil
 	}
 
 	// 2. Get Member Information
-	member, err := h.discord.GuildMember(h.cfg.DiscordGuildID, user.DiscordID)
+	member, err := h.discord.GuildMember(h.cfg.DiscordGuildID, discordID)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") {
-			return res, nil
+			return false, nil
 		}
-		return nil, huma.Error500InternalServerError("Failed to fetch guild member: " + err.Error())
+		return false, huma.Error500InternalServerError("Failed to fetch guild member: " + err.Error())
 	}
 
 	for _, r := range member.Roles {
 		if r == roleID {
-			res.Body.Paid = true
-			break
+			return true, nil
 		}
 	}
 
-	return res, nil
+	return false, nil
 }
 
 // Authorize parses the auth_token from a Cookie header string

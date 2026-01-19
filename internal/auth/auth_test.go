@@ -16,7 +16,7 @@ func TestHandleMe(t *testing.T) {
 		t.Fatalf("failed to connect database: %v", err)
 	}
 
-	db.AutoMigrate(&models.User{})
+	db.AutoMigrate(&models.User{}, &models.Registration{})
 
 	user := models.User{
 		DiscordID: "123456",
@@ -44,6 +44,36 @@ func TestHandleMe(t *testing.T) {
 		}
 		if resp.Body.Email != user.Email {
 			t.Errorf("expected email %s, got %s", user.Email, resp.Body.Email)
+		}
+
+		// Verify Paid status (default false in this test setup)
+		if resp.Body.Paid != false {
+			t.Errorf("expected paid false, got %v", resp.Body.Paid)
+		}
+
+		// Verify Registration is nil initially
+		if resp.Body.Registration != nil {
+			t.Errorf("expected registration nil, got %v", resp.Body.Registration)
+		}
+
+		// Add a registration and check again
+		db.Create(&models.Registration{
+			UserID: user.ID,
+			RegistrationFields: models.RegistrationFields{
+				ChildrenCount: 2,
+			},
+		})
+
+		resp, err = handler.HandleMe(context.Background(), input)
+		if err != nil {
+			t.Fatalf("HandleMe returned error after registration: %v", err)
+		}
+
+		if resp.Body.Registration == nil {
+			t.Fatal("expected registration to be non-nil")
+		}
+		if resp.Body.Registration.ChildrenCount != 2 {
+			t.Errorf("expected children count 2, got %d", resp.Body.Registration.ChildrenCount)
 		}
 	})
 

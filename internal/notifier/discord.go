@@ -30,7 +30,12 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 		status = "cancelled registration"
 	}
 
-	message := fmt.Sprintf("🔔 **Registration Update**\n**User:** %s (<@%s>)\n**Status:** %s\n**Dates:** %s - %s\n**Children:** %d\n**Food Restrictions:** %s",
+	noteStr := ""
+	if registration.Note != "" {
+		noteStr = fmt.Sprintf("\n**Note:** %s", registration.Note)
+	}
+
+	message := fmt.Sprintf("🔔 **Registration Update**\n**User:** %s (<@%s>)\n**Status:** %s\n**Dates:** %s - %s\n**Children:** %d\n**Food Restrictions:** %s%s",
 		user.Username,
 		user.DiscordID,
 		status,
@@ -38,6 +43,7 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 		registration.DepartureDate.Format("2006-01-02"),
 		registration.ChildrenCount,
 		registration.FoodRestrictions,
+		noteStr,
 	)
 
 	_, err := n.session.ChannelMessageSend(n.channelID, message)
