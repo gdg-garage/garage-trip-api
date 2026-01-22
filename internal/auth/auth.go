@@ -202,10 +202,9 @@ func (h *AuthHandler) Authorize(cookieHeader string) (uint, error) {
 }
 
 type CallbackResponse struct {
+	Status    int    `header:"-" status:"307"`
+	Location  string `header:"Location"`
 	SetCookie string `header:"Set-Cookie"`
-	Body      struct {
-		Message string `json:"message"`
-	}
 }
 
 func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) (*CallbackResponse, error) {
@@ -295,8 +294,10 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 		Path:     "/",
 	}
 
-	res := &CallbackResponse{}
-	res.Body.Message = fmt.Sprintf("Welcome %s! You are logged in.", user.Username)
+	res := &CallbackResponse{
+		Status:   307,
+		Location: h.cfg.FrontendURL,
+	}
 	res.SetCookie = cookie.String()
 
 	return res, nil
