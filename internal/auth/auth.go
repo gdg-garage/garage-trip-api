@@ -24,6 +24,7 @@ const (
 	DiscordTokenEndpoint     = "https://discord.com/api/oauth2/token"
 	DiscordUserAPI           = "https://discord.com/api/users/@me"
 	DiscordUserGuildsAPI     = "https://discord.com/api/users/@me/guilds"
+	TokenDuration            = 24 * time.Hour
 )
 
 type AuthHandler struct {
@@ -289,7 +290,7 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 	cookie := &http.Cookie{
 		Name:     "auth_token",
 		Value:    jwtToken,
-		Expires:  time.Now().Add(24 * time.Hour),
+		Expires:  time.Now().Add(TokenDuration),
 		HttpOnly: true,
 		Path:     "/",
 	}
@@ -304,7 +305,8 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 func (h *AuthHandler) GenerateToken(userID uint) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+		"iat":     time.Now().Unix(),
+		"exp":     time.Now().Add(TokenDuration).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(h.cfg.JWTSecret))

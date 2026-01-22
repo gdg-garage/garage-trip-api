@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -43,8 +44,27 @@ func (h *AuthHandler) JWTMiddleware(next http.Handler) http.Handler {
 				http.Error(w, "Unauthorized: Invalid token claims", http.StatusUnauthorized)
 				return
 			}
+			userID := uint(userIDFloat)
 
-			ctx := context.WithValue(r.Context(), UserIDKey, uint(userIDFloat))
+			// Sliding session: refresh token if it's more than halfway through its duration
+			if exp, ok := claims["exp"].(float64); ok {
+				remaining := time.Until(time.Unix(int64(exp), 0))
+				if remaining < TokenDuration/2 {
+					newToken, err := h.GenerateToken(userID)
+					if err == nil {
+						cookie := &http.Cookie{
+							Name:     "auth_token",
+							Value:    newToken,
+							Expires:  time.Now().Add(TokenDuration),
+							HttpOnly: true,
+							Path:     "/",
+						}
+						http.SetCookie(w, cookie)
+					}
+				}
+			}
+
+			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
