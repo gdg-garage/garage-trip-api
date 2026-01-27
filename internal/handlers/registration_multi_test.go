@@ -43,6 +43,7 @@ func TestHandleRegister_MultiUser(t *testing.T) {
 	req1.Body.ArrivalDate = arrival
 	req1.Body.DepartureDate = departure
 	req1.Body.FoodRestrictions = "User1 Allergy"
+	req1.Body.Event = "event-1"
 
 	if user1.ID == 0 {
 		t.Fatal("user1.ID is 0 after Create")
@@ -60,6 +61,7 @@ func TestHandleRegister_MultiUser(t *testing.T) {
 	req2.Body.ArrivalDate = arrival
 	req2.Body.DepartureDate = departure
 	req2.Body.FoodRestrictions = "User2 Preference"
+	req2.Body.Event = "event-2"
 
 	token2, _ := authHandler.GenerateToken(user2.ID)
 	req2.Cookie = "auth_token=" + token2
@@ -96,6 +98,12 @@ func TestHandleRegister_MultiUser(t *testing.T) {
 	}
 	if reg2.FoodRestrictions != "User2 Preference" {
 		t.Errorf("Reg2 FoodRestrictions mismatch: expected 'User2 Preference', got '%s'", reg2.FoodRestrictions)
+	}
+	if reg1.Event != "event-1" {
+		t.Errorf("Reg1 Event mismatch: expected 'event-1', got '%s'", reg1.Event)
+	}
+	if reg2.Event != "event-2" {
+		t.Errorf("Reg2 Event mismatch: expected 'event-2', got '%s'", reg2.Event)
 	}
 }
 
