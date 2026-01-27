@@ -13,6 +13,7 @@ type RegistrationFields struct {
 	ChildrenCount    int       `json:"children_count"`
 	Cancelled        bool      `json:"cancelled"`
 	Note             string    `json:"note"`
+	Event            string    `json:"event"`
 }
 
 type Registration struct {

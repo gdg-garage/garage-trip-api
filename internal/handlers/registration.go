@@ -30,6 +30,7 @@ type RegistrationRequest struct {
 		ChildrenCount    int       `json:"children_count" doc:"Number of children joining"`
 		Cancelled        bool      `json:"cancelled" doc:"Whether the registration is cancelled"`
 		Note             string    `json:"note" doc:"Additional notes"`
+		Event            string    `json:"event" doc:"Event ID"`
 	}
 }
 
@@ -69,6 +70,7 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 			ChildrenCount:    input.Body.ChildrenCount,
 			Cancelled:        input.Body.Cancelled,
 			Note:             input.Body.Note,
+			Event:            input.Body.Event,
 		}
 
 		if err := tx.Save(&registration).Error; err != nil {
