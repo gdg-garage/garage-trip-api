@@ -15,7 +15,7 @@ type Notifier interface {
 	// GrantRole Grant a role to a user
 	GrantRole(userID string, roleID string) error
 	// NotifyAchievement Send a message about the achievement
-	NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User) error
+	NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User, showGrantor bool) error
 	// NotifyRegistration Notify about registration changes
 	NotifyRegistration(user models.User, registration models.Registration) error
 }
@@ -60,37 +60,39 @@ func (n *DiscordNotifier) GrantRole(userID string, roleID string) error {
 	return nil
 }
 
-func (n *DiscordNotifier) NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User) error {
+func (n *DiscordNotifier) NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User, showGrantor bool) error {
 	if n.session == nil || n.channelID == "" {
 		return fmt.Errorf("discord session is nil or channel ID is empty")
 	}
 
-	message := fmt.Sprintf("🏆 **Achievement Unlocked!**\n**User:** %s (<@%s>)\n**Achievement:** %s\n**Granted By:** %s",
+	message := fmt.Sprintf("🏆 **Achievement Unlocked!**\n**User:** %s (<@%s>)\n**Achievement:** %s",
 		user.Username,
 		user.DiscordID,
 		achievement.Name,
-		grantor.Username,
 	)
+	if showGrantor {
+		message += fmt.Sprintf("\n**Granted By:** %s", grantor.Username)
+	}
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Achievement Unlocked! 🏆",
 		Description: fmt.Sprintf("<@%s> has unlocked the **%s** achievement!", user.DiscordID, achievement.Name),
 		Color:       0xFFD700, // Gold color
-		Thumbnail: &discordgo.MessageEmbedThumbnail{
-			URL: achievement.Image,
-		},
-		Fields: []*discordgo.MessageEmbedField{
+	}
+
+	if showGrantor {
+		embed.Fields = []*discordgo.MessageEmbedField{
 			{
 				Name:   "Granted By",
 				Value:  grantor.Username,
 				Inline: true,
 			},
-		},
+		}
 	}
 
-	if achievement.Code != "" {
-		embed.Footer = &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Code: %s", achievement.Code),
+	if achievement.Image != "" {
+		embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
+			URL: achievement.Image,
 		}
 	}
 

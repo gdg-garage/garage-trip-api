@@ -25,9 +25,9 @@ func NewAchievementHandler(db *gorm.DB, notifier notifier.Notifier, authHandler 
 type CreateAchievementRequest struct {
 	auth.AuthInput
 	Body struct {
-		Name  string `json:"name" doc:"Name of the achievement"`
+		Name  string `json:"name" doc:"Name of the achievement" required:"true"`
 		Image string `json:"image" doc:"URL to image of the achievement"`
-		Code  string `json:"code" doc:"Unique code for the achievement"`
+		Code  string `json:"code" doc:"Unique secret code for the achievement" required:"true"`
 	}
 }
 
@@ -87,8 +87,8 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 type GrantAchievementRequest struct {
 	auth.AuthInput
 	Body struct {
-		AchievementCode string `json:"achievement_code" doc:"Code of the achievement to grant"`
-		UserID          uint   `json:"user_id,omitempty" doc:"Optional user ID to grant to (only for orgs)"`
+		Code   string `json:"code" doc:"Unique secret code of the achievement to grant" required:"true"`
+		UserID uint   `json:"user_id,omitempty" doc:"Optional user ID to grant to (only for orgs)"`
 	}
 }
 
@@ -124,10 +124,10 @@ func (h *AchievementHandler) HandleGrantAchievement(ctx context.Context, input *
 		targetUserID = input.Body.UserID
 	}
 
-	// 2. Find Achievement
+	// 2. Find Achievement by secret code
 	var achievement models.Achievement
-	if err := h.db.Where("code = ?", input.Body.AchievementCode).First(&achievement).Error; err != nil {
-		return nil, huma.Error404NotFound("Achievement not found")
+	if err := h.db.Where("code = ?", input.Body.Code).First(&achievement).Error; err != nil {
+		return nil, huma.Error404NotFound("Achievement not found or invalid code")
 	}
 
 	// 3. Check if already granted
@@ -166,7 +166,8 @@ func (h *AchievementHandler) HandleGrantAchievement(ctx context.Context, input *
 	}
 
 	// 6. Send Discord Notification
-	if err := h.notifier.NotifyAchievement(targetUser, achievement, grantor); err != nil {
+	showGrantor := targetUserID != grantorID
+	if err := h.notifier.NotifyAchievement(targetUser, achievement, grantor, showGrantor); err != nil {
 		log.Printf("Failed to send notification: %v", err)
 		// Don't fail the request here as role and DB are done
 	}
