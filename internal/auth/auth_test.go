@@ -51,14 +51,15 @@ func TestHandleMe(t *testing.T) {
 			t.Errorf("expected paid false, got %v", resp.Body.Paid)
 		}
 
-		// Verify Registration is nil initially
-		if resp.Body.Registration != nil {
-			t.Errorf("expected registration nil, got %v", resp.Body.Registration)
+		// Verify Registrations is nil or empty initially
+		if len(resp.Body.Registrations) != 0 {
+			t.Errorf("expected registrations empty, got %d", len(resp.Body.Registrations))
 		}
 
 		// Add a registration and check again
 		db.Create(&models.Registration{
 			UserID: user.ID,
+			Event:  "test-event",
 			RegistrationFields: models.RegistrationFields{
 				ChildrenCount: 2,
 			},
@@ -69,11 +70,11 @@ func TestHandleMe(t *testing.T) {
 			t.Fatalf("HandleMe returned error after registration: %v", err)
 		}
 
-		if resp.Body.Registration == nil {
-			t.Fatal("expected registration to be non-nil")
+		if len(resp.Body.Registrations) != 1 {
+			t.Fatal("expected 1 registration")
 		}
-		if resp.Body.Registration.ChildrenCount != 2 {
-			t.Errorf("expected children count 2, got %d", resp.Body.Registration.ChildrenCount)
+		if resp.Body.Registrations[0].ChildrenCount != 2 {
+			t.Errorf("expected children count 2, got %d", resp.Body.Registrations[0].ChildrenCount)
 		}
 	})
 

@@ -58,10 +58,11 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 
 	var registration models.Registration
 	err = h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", userID).FirstOrInit(&registration).Error; err != nil {
+		if err := tx.Where("user_id = ? AND event = ?", userID, input.Body.Event).FirstOrInit(&registration).Error; err != nil {
 			return err
 		}
 		registration.UserID = userID
+		registration.Event = input.Body.Event
 
 		registration.RegistrationFields = models.RegistrationFields{
 			ArrivalDate:      input.Body.ArrivalDate,
@@ -70,7 +71,6 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 			ChildrenCount:    input.Body.ChildrenCount,
 			Cancelled:        input.Body.Cancelled,
 			Note:             input.Body.Note,
-			Event:            input.Body.Event,
 		}
 
 		if err := tx.Save(&registration).Error; err != nil {
@@ -81,7 +81,9 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 		history := models.RegistrationHistory{
 			RegistrationID:     registration.ID,
 			UserID:             registration.UserID,
+			Event:              registration.Event,
 			RegistrationFields: registration.RegistrationFields,
+			Model:              gorm.Model{CreatedAt: time.Now()}, // Ensure CreatedAt is set
 		}
 
 		if err := tx.Create(&history).Error; err != nil {
@@ -137,6 +139,7 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 
 type ListRegistrationsRequest struct {
 	auth.AuthInput `doc:"Restricted to users with the 'g::t::orgs' role"`
+	Event          string `query:"event" doc:"Optional event ID to filter by"`
 }
 
 type ListRegistrationsResponse struct {
@@ -169,7 +172,13 @@ func (h *RegistrationHandler) HandleListRegistrations(ctx context.Context, input
 
 	// 4. Fetch all registrations
 	var registrations []models.Registration
-	if err := h.db.Preload("User").Find(&registrations).Error; err != nil {
+	query := h.db.Preload("User")
+
+	if input.Event != "" {
+		query = query.Where("event = ?", input.Event)
+	}
+
+	if err := query.Find(&registrations).Error; err != nil {
 		return nil, huma.Error500InternalServerError("Failed to fetch registrations: " + err.Error())
 	}
 

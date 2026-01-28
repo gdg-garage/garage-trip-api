@@ -55,7 +55,8 @@ func TestHandleRegister(t *testing.T) {
 	reqBody.Body.ChildrenCount = 5
 	reqBody.Body.FoodRestrictions = "Vegan"
 	reqBody.Body.Note = "Updated note"
-	reqBody.Body.Event = "test-event-updated"
+	// Keep same event to trigger update
+	reqBody.Body.Event = "test-event-1"
 
 	resp, err = handler.HandleRegister(context.Background(), &reqBody)
 	if err != nil {
@@ -94,8 +95,8 @@ func TestHandleRegister(t *testing.T) {
 	if registration.Note != "Updated note" {
 		t.Errorf("expected 'Updated note', got '%s'", registration.Note)
 	}
-	if registration.Event != "test-event-updated" {
-		t.Errorf("expected 'test-event-updated', got '%s'", registration.Event)
+	if registration.Event != "test-event-1" {
+		t.Errorf("expected 'test-event-1', got '%s'", registration.Event)
 	}
 
 	var histories []models.RegistrationHistory
@@ -116,8 +117,8 @@ func TestHandleRegister(t *testing.T) {
 	if histories[0].Event != "test-event-1" {
 		t.Errorf("expected first history to have 'test-event-1', got '%s'", histories[0].Event)
 	}
-	if histories[1].Event != "test-event-updated" {
-		t.Errorf("expected second history to have 'test-event-updated', got '%s'", histories[1].Event)
+	if histories[1].Event != "test-event-1" {
+		t.Errorf("expected second history to have 'test-event-1', got '%s'", histories[1].Event)
 	}
 
 	// Test cancellation

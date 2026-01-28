@@ -13,12 +13,12 @@ type RegistrationFields struct {
 	ChildrenCount    int       `json:"children_count"`
 	Cancelled        bool      `json:"cancelled"`
 	Note             string    `json:"note"`
-	Event            string    `json:"event"`
 }
 
 type Registration struct {
 	gorm.Model
-	UserID             uint `json:"user_id" gorm:"uniqueIndex"`
-	User               User `gorm:"foreignKey:UserID"`
+	UserID             uint   `json:"user_id" gorm:"uniqueIndex:idx_user_event"`
+	Event              string `json:"event" gorm:"uniqueIndex:idx_user_event"`
+	User               User   `gorm:"foreignKey:UserID"`
 	RegistrationFields `gorm:"embedded"`
 }

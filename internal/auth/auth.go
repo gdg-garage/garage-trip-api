@@ -72,15 +72,16 @@ type CallbackInput struct {
 
 type MeResponse struct {
 	Body struct {
-		Username     string               `json:"username"`
-		Email        string               `json:"email"`
-		Paid         bool                 `json:"paid"`
-		Registration *models.Registration `json:"registration,omitempty"`
+		Username      string                `json:"username"`
+		Email         string                `json:"email"`
+		Paid          bool                  `json:"paid"`
+		Registrations []models.Registration `json:"registrations"`
 	}
 }
 
 type AuthInput struct {
 	Cookie string `header:"Cookie" doc:"Authentication cookie containing the auth_token JWT" example:"auth_token=..."`
+	Event  string `query:"event" doc:"Optional event ID to filter by"`
 }
 
 func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeResponse, error) {
@@ -102,9 +103,13 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeRespon
 	res.Body.Paid = h.isPaid(user.DiscordID)
 
 	// 2. Fetch Registration
-	var reg models.Registration
-	if err := h.db.Preload("User").Where("user_id = ?", user.ID).First(&reg).Error; err == nil {
-		res.Body.Registration = &reg
+	var regs []models.Registration
+	query := h.db.Preload("User").Where("user_id = ?", user.ID)
+	if input.Event != "" {
+		query = query.Where("event = ?", input.Event)
+	}
+	if err := query.Find(&regs).Error; err == nil {
+		res.Body.Registrations = regs
 	}
 
 	return res, nil
