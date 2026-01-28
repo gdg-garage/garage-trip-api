@@ -85,7 +85,7 @@ type AuthInput struct {
 }
 
 func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeResponse, error) {
-	userID, err := h.Authorize(input.Cookie)
+	userID, err := h.Authorize(ctx, input.Cookie)
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +166,12 @@ func (h *AuthHandler) CheckRole(discordID string, roleName string) (bool, error)
 	return false, nil
 }
 
-// Authorize parses the auth_token from a Cookie header string
-func (h *AuthHandler) Authorize(cookieHeader string) (uint, error) {
+// Authorize returns the user ID from context or parses the auth_token from a Cookie header string
+func (h *AuthHandler) Authorize(ctx context.Context, cookieHeader string) (uint, error) {
+	if userID, ok := ctx.Value(UserIDKey).(uint); ok {
+		return userID, nil
+	}
+
 	if cookieHeader == "" {
 		return 0, huma.Error401Unauthorized("Unauthorized: No cookies found")
 	}

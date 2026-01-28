@@ -16,7 +16,7 @@ func Connect(cfg *config.Config) *gorm.DB {
 	}
 
 	// Auto Migrate
-	err = db.AutoMigrate(&models.User{}, &models.Registration{}, &models.RegistrationHistory{})
+	err = db.AutoMigrate(&models.User{}, &models.Registration{}, &models.RegistrationHistory{}, &models.Achievement{}, &models.AchievementGrant{}, &models.APIKey{})
 	if err != nil {
 		log.Fatalf("Failed to auto migrate: %v", err)
 	}

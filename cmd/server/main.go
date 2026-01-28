@@ -38,12 +38,14 @@ func main() {
 
 	authHandler := auth.NewAuthHandler(cfg, db, discordSession)
 	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier, authHandler)
+	achievementHandler := handlers.NewAchievementHandler(db, discordNotifier, authHandler)
+	apiKeyHandler := handlers.NewAPIKeyHandler(db, authHandler)
 
 	// Initialize Router
 	r := chi.NewRouter()
 
 	// Register Routes
-	handlers.RegisterRoutes(r, authHandler, registrationHandler)
+	handlers.RegisterRoutes(r, authHandler, registrationHandler, achievementHandler, apiKeyHandler)
 
 	// Start Server
 	log.Printf("Starting server on port %s", cfg.Port)

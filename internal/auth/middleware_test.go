@@ -32,7 +32,7 @@ func TestJWTMiddleware_SlidingSession(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		middleware := handler.JWTMiddleware(nextHandler)
+		middleware := handler.AuthMiddleware(nextHandler)
 		middleware.ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {
@@ -74,7 +74,7 @@ func TestJWTMiddleware_SlidingSession(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		middleware := handler.JWTMiddleware(nextHandler)
+		middleware := handler.AuthMiddleware(nextHandler)
 		middleware.ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {

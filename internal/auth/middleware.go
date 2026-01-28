@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gdg-garage/garage-trip-api/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -13,8 +14,27 @@ type contextKey string
 
 const UserIDKey contextKey = "user_id"
 
-func (h *AuthHandler) JWTMiddleware(next http.Handler) http.Handler {
+func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Check for API Key Header
+		apiKey := r.Header.Get("X-API-KEY")
+		if apiKey != "" {
+			var keyModel models.APIKey
+			if err := h.db.Where("key = ?", apiKey).First(&keyModel).Error; err == nil {
+				if keyModel.ExpiresAt != nil && time.Now().After(*keyModel.ExpiresAt) {
+					http.Error(w, "Unauthorized: API Key expired", http.StatusUnauthorized)
+					return
+				}
+
+				h.db.Model(&keyModel).Update("last_used_at", time.Now())
+
+				ctx := context.WithValue(r.Context(), UserIDKey, keyModel.UserID)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+		}
+
+		// 2. Fallback to JWT Cookie
 		cookie, err := r.Cookie("auth_token")
 		if err != nil {
 			if err == http.ErrNoCookie {

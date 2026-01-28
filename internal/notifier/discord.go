@@ -9,6 +9,14 @@ import (
 )
 
 type Notifier interface {
+
+	// CreateRole Create a new role in guild
+	CreateRole(name string) (string, error)
+	// GrantRole Grant a role to a user
+	GrantRole(userID string, roleID string) error
+	// NotifyAchievement Send a message about the achievement
+	NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User) error
+	// NotifyRegistration Notify about registration changes
 	NotifyRegistration(user models.User, registration models.Registration) error
 }
 
@@ -24,6 +32,80 @@ func NewDiscordNotifier(session *discordgo.Session, channelID string, guildID st
 		channelID: channelID,
 		guildID:   guildID,
 	}
+}
+
+func (n *DiscordNotifier) CreateRole(name string) (string, error) {
+	if n.session == nil || n.guildID == "" {
+		return "", fmt.Errorf("discord session is nil or guildID is empty")
+	}
+
+	role, err := n.session.GuildRoleCreate(n.guildID, &discordgo.RoleParams{
+		Name: name,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create role: %w", err)
+	}
+	return role.ID, nil
+}
+
+func (n *DiscordNotifier) GrantRole(userID string, roleID string) error {
+	if n.session == nil || n.guildID == "" {
+		return fmt.Errorf("discord session is nil or guildID is empty")
+	}
+
+	err := n.session.GuildMemberRoleAdd(n.guildID, userID, roleID)
+	if err != nil {
+		return fmt.Errorf("failed to grant role: %w", err)
+	}
+	return nil
+}
+
+func (n *DiscordNotifier) NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User) error {
+	if n.session == nil || n.channelID == "" {
+		return fmt.Errorf("discord session is nil or channel ID is empty")
+	}
+
+	message := fmt.Sprintf("🏆 **Achievement Unlocked!**\n**User:** %s (<@%s>)\n**Achievement:** %s\n**Granted By:** %s",
+		user.Username,
+		user.DiscordID,
+		achievement.Name,
+		grantor.Username,
+	)
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Achievement Unlocked! 🏆",
+		Description: fmt.Sprintf("<@%s> has unlocked the **%s** achievement!", user.DiscordID, achievement.Name),
+		Color:       0xFFD700, // Gold color
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL: achievement.Image,
+		},
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "Granted By",
+				Value:  grantor.Username,
+				Inline: true,
+			},
+		},
+	}
+
+	if achievement.Code != "" {
+		embed.Footer = &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Code: %s", achievement.Code),
+		}
+	}
+
+	_, err := n.session.ChannelMessageSendEmbed(n.channelID, embed)
+	// Fallback to simple message if embed fails (e.g. permission issues or image issues, though rare)
+	if err != nil {
+		log.Printf("Failed to send discord embed: %v. Falling back to text.", err)
+		_, err = n.session.ChannelMessageSend(n.channelID, message)
+		if err != nil {
+			log.Printf("Failed to send discord message: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (n *DiscordNotifier) NotifyRegistration(user models.User, registration models.Registration) error {

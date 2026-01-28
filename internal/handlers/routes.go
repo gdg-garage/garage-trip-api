@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandler *RegistrationHandler) {
+func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandler *RegistrationHandler, achievementHandler *AchievementHandler, apiKeyHandler *APIKeyHandler) {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -21,6 +21,11 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 			Type: "apiKey",
 			In:   "cookie",
 			Name: "auth_token",
+		},
+		"apiKeyAuth": {
+			Type: "apiKey",
+			In:   "header",
+			Name: "X-API-KEY",
 		},
 	}
 	api := humachi.New(r, config)
@@ -36,20 +41,52 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
-		r.Use(authHandler.JWTMiddleware)
+		r.Use(authHandler.AuthMiddleware)
+
+		// User & API Key agnostic routes (secured by AuthMiddleware)
+		authSecurity := []map[string][]string{
+			{"cookieAuth": {}},
+			{"apiKeyAuth": {}},
+		}
+
 		huma.Get(api, "/me", authHandler.HandleMe, func(o *huma.Operation) {
-			o.Security = []map[string][]string{{"cookieAuth": {}}}
+			o.Security = authSecurity
 		})
 		huma.Post(api, "/register", registrationHandler.HandleRegister, func(o *huma.Operation) {
-			o.Security = []map[string][]string{{"cookieAuth": {}}}
+			o.Security = authSecurity
 		})
 		huma.Get(api, "/history", registrationHandler.HandleHistory, func(o *huma.Operation) {
-			o.Security = []map[string][]string{{"cookieAuth": {}}}
+			o.Security = authSecurity
 		})
 		huma.Get(api, "/registrations", registrationHandler.HandleListRegistrations, func(o *huma.Operation) {
 			o.Summary = "List all registrations"
 			o.Description = "Returns a list of all registrations. Restricted to users with the 'g::t::orgs' role."
-			o.Security = []map[string][]string{{"cookieAuth": {}}}
+			o.Security = authSecurity
+		})
+
+		huma.Post(api, "/achievements/create", achievementHandler.HandleCreateAchievement, func(o *huma.Operation) {
+			o.Summary = "Create a new achievement"
+			o.Description = "Creates a new achievement and a corresponding Discord role. Restricted to orgs."
+			o.Security = authSecurity
+		})
+		huma.Post(api, "/achievements/grant", achievementHandler.HandleGrantAchievement, func(o *huma.Operation) {
+			o.Summary = "Grant an achievement"
+			o.Description = "Grants an achievement to a user."
+			o.Security = authSecurity
+		})
+
+		// API Key Management Routes
+		huma.Post(api, "/api-keys", apiKeyHandler.HandleCreate, func(o *huma.Operation) {
+			o.Summary = "Create API Key"
+			o.Security = authSecurity
+		})
+		huma.Get(api, "/api-keys", apiKeyHandler.HandleList, func(o *huma.Operation) {
+			o.Summary = "List API Keys"
+			o.Security = authSecurity
+		})
+		huma.Delete(api, "/api-keys/{id}", apiKeyHandler.HandleDelete, func(o *huma.Operation) {
+			o.Summary = "Delete API Key"
+			o.Security = authSecurity
 		})
 	})
 }
