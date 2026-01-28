@@ -112,11 +112,31 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 
 type HistoryRequest struct {
 	auth.AuthInput
+	Diff *bool `query:"diff" default:"true" doc:"If true, returns only changed fields compared to the previous history entry"`
+}
+
+type RegistrationFieldsResponse struct {
+	ArrivalDate      *time.Time `json:"arrival_date,omitempty"`
+	DepartureDate    *time.Time `json:"departure_date,omitempty"`
+	FoodRestrictions *string    `json:"food_restrictions,omitempty"`
+	ChildrenCount    *int       `json:"children_count,omitempty"`
+	Cancelled        *bool      `json:"cancelled,omitempty"`
+	Note             *string    `json:"note,omitempty"`
+}
+
+type RegistrationHistoryResponseItem struct {
+	ID                 uint                       `json:"id"`
+	CreatedAt          time.Time                  `json:"created_at"`
+	DeletedAt          *time.Time                 `json:"deleted_at,omitempty"`
+	RegistrationID     uint                       `json:"registration_id"`
+	UserID             uint                       `json:"user_id"`
+	Event              string                     `json:"event"`
+	RegistrationFields RegistrationFieldsResponse `json:"fields"`
 }
 
 type HistoryResponse struct {
 	Body struct {
-		History []models.RegistrationHistory `json:"history" doc:"List of registration changes, newest first"`
+		History []RegistrationHistoryResponseItem `json:"history" doc:"List of registration changes, newest first"`
 	}
 }
 
@@ -132,8 +152,64 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 		return nil, huma.Error500InternalServerError("Failed to fetch history: " + err.Error())
 	}
 
+	responseItems := make([]RegistrationHistoryResponseItem, 0, len(history))
+	diff := true
+	if input.Diff != nil {
+		diff = *input.Diff
+	}
+
+	for i, item := range history {
+		respItem := RegistrationHistoryResponseItem{
+			ID:             item.ID,
+			CreatedAt:      item.CreatedAt,
+			RegistrationID: item.RegistrationID,
+			UserID:         item.UserID,
+			Event:          item.Event,
+		}
+		if item.DeletedAt.Valid {
+			respItem.DeletedAt = &item.DeletedAt.Time
+		}
+
+		if !diff || i == len(history)-1 {
+			// Return full object if diff is disabled or it's the oldest item (no previous to compare)
+			respItem.RegistrationFields = RegistrationFieldsResponse{
+				ArrivalDate:      &item.ArrivalDate,
+				DepartureDate:    &item.DepartureDate,
+				FoodRestrictions: &item.FoodRestrictions,
+				ChildrenCount:    &item.ChildrenCount,
+				Cancelled:        &item.Cancelled,
+				Note:             &item.Note,
+			}
+		} else {
+			// Compare with previous item (which is next in the list since we ordered DESC)
+			prev := history[i+1]
+			fields := RegistrationFieldsResponse{}
+
+			if !item.ArrivalDate.Equal(prev.ArrivalDate) {
+				fields.ArrivalDate = &item.ArrivalDate
+			}
+			if !item.DepartureDate.Equal(prev.DepartureDate) {
+				fields.DepartureDate = &item.DepartureDate
+			}
+			if item.FoodRestrictions != prev.FoodRestrictions {
+				fields.FoodRestrictions = &item.FoodRestrictions
+			}
+			if item.ChildrenCount != prev.ChildrenCount {
+				fields.ChildrenCount = &item.ChildrenCount
+			}
+			if item.Cancelled != prev.Cancelled {
+				fields.Cancelled = &item.Cancelled
+			}
+			if item.Note != prev.Note {
+				fields.Note = &item.Note
+			}
+			respItem.RegistrationFields = fields
+		}
+		responseItems = append(responseItems, respItem)
+	}
+
 	res := &HistoryResponse{}
-	res.Body.History = history
+	res.Body.History = responseItems
 	return res, nil
 }
 
