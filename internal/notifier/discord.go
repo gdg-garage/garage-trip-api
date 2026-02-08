@@ -21,16 +21,18 @@ type Notifier interface {
 }
 
 type DiscordNotifier struct {
-	session   *discordgo.Session
-	channelID string
-	guildID   string
+	session           *discordgo.Session
+	channelID         string
+	guildID           string
+	achievementPrefix string
 }
 
-func NewDiscordNotifier(session *discordgo.Session, channelID string, guildID string) *DiscordNotifier {
+func NewDiscordNotifier(session *discordgo.Session, channelID string, guildID string, achievementPrefix string) *DiscordNotifier {
 	return &DiscordNotifier{
-		session:   session,
-		channelID: channelID,
-		guildID:   guildID,
+		session:           session,
+		channelID:         channelID,
+		guildID:           guildID,
+		achievementPrefix: achievementPrefix,
 	}
 }
 
@@ -40,7 +42,7 @@ func (n *DiscordNotifier) CreateRole(name string) (string, error) {
 	}
 
 	role, err := n.session.GuildRoleCreate(n.guildID, &discordgo.RoleParams{
-		Name: name,
+		Name: n.achievementPrefix + name,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create role: %w", err)

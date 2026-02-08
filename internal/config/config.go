@@ -17,6 +17,7 @@ type Config struct {
 	DiscordNotificationsChannelID string `mapstructure:"DISCORD_NOTIFICATIONS_CHANNEL_ID"`
 	JWTSecret                     string `mapstructure:"JWT_SECRET"`
 	FrontendURL                   string `mapstructure:"FRONTEND_URL"`
+	AchievementPrefix             string `mapstructure:"ACHIEVEMENT_PREFIX"`
 }
 
 func LoadConfig() *Config {
@@ -25,6 +26,7 @@ func LoadConfig() *Config {
 	viper.SetDefault("DISCORD_REDIRECT_URL", "http://localhost:8080/auth/discord/callback")
 	viper.SetDefault("DISCORD_GUILD_ID", "750810991897608293")
 	viper.SetDefault("FRONTEND_URL", "http://localhost:4000")
+	viper.SetDefault("ACHIEVEMENT_PREFIX", "achievement::")
 
 	viper.BindEnv("DISCORD_CLIENT_ID")
 	viper.BindEnv("DISCORD_CLIENT_SECRET")
@@ -33,6 +35,7 @@ func LoadConfig() *Config {
 	viper.BindEnv("DISCORD_NOTIFICATIONS_CHANNEL_ID")
 	viper.BindEnv("JWT_SECRET")
 	viper.BindEnv("FRONTEND_URL")
+	viper.BindEnv("ACHIEVEMENT_PREFIX")
 
 	viper.AutomaticEnv()
 
