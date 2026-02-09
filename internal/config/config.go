@@ -23,9 +23,9 @@ type Config struct {
 func LoadConfig() *Config {
 	viper.SetDefault("PORT", "8080")
 	viper.SetDefault("DATABASE_PATH", "garage.db")
-	viper.SetDefault("DISCORD_REDIRECT_URL", "http://localhost:8080/auth/discord/callback")
+	viper.SetDefault("DISCORD_REDIRECT_URL", "http://127.0.0.1:8080/auth/discord/callback")
 	viper.SetDefault("DISCORD_GUILD_ID", "750810991897608293")
-	viper.SetDefault("FRONTEND_URL", "http://localhost:4000")
+	viper.SetDefault("FRONTEND_URL", "http://127.0.0.1:4000")
 	viper.SetDefault("ACHIEVEMENT_PREFIX", "achievement::")
 
 	viper.BindEnv("DISCORD_CLIENT_ID")
