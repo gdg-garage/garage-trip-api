@@ -122,7 +122,7 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 
 	// Role Management
 	if n.guildID != "" {
-		roleName := "g::t::7.0.0"
+		roleName := registration.Event
 		roles, err := n.session.GuildRoles(n.guildID)
 		if err != nil {
 			log.Printf("Failed to fetch guild roles: %v", err)
@@ -163,7 +163,8 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 		noteStr = fmt.Sprintf("\n**Note:** %s", registration.Note)
 	}
 
-	message := fmt.Sprintf("🎉 **Registration Update**\n**User:** %s (<@%s>)\n**Status:** %s\n**Dates:** %s - %s\n**Children:** %d\n**Food Restrictions:** %s%s",
+	message := fmt.Sprintf("🎉 **Registration Update: %s**\n**User:** %s (<@%s>)\n**Status:** %s\n**Dates:** %s - %s\n**Children:** %d\n**Food Restrictions:** %s%s",
+		registration.Event,
 		user.Username,
 		user.DiscordID,
 		status,

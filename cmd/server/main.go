@@ -45,7 +45,7 @@ func main() {
 	r := chi.NewRouter()
 
 	// Register Routes
-	handlers.RegisterRoutes(r, authHandler, registrationHandler, achievementHandler, apiKeyHandler)
+	handlers.RegisterRoutes(r, cfg, authHandler, registrationHandler, achievementHandler, apiKeyHandler)
 
 	// Start Server
 	log.Printf("Starting server on port %s", cfg.Port)

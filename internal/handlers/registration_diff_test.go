@@ -77,7 +77,7 @@ func TestHandleHistory_Diff(t *testing.T) {
 	t.Run("DiffEnabled", func(t *testing.T) {
 		req := HistoryRequest{}
 		req.Cookie = authCookie
-		// Diff default is true
+		req.Diff = true
 
 		resp, err := handler.HandleHistory(context.Background(), &req)
 		if err != nil {
@@ -125,8 +125,7 @@ func TestHandleHistory_Diff(t *testing.T) {
 	t.Run("DiffDisabled", func(t *testing.T) {
 		req := HistoryRequest{}
 		req.Cookie = authCookie
-		val := false
-		req.Diff = &val
+		req.Diff = false
 
 		resp, err := handler.HandleHistory(context.Background(), &req)
 		if err != nil {

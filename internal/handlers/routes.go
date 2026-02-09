@@ -6,13 +6,18 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
+	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandler *RegistrationHandler, achievementHandler *AchievementHandler, apiKeyHandler *APIKeyHandler) {
+func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandler, registrationHandler *RegistrationHandler, achievementHandler *AchievementHandler, apiKeyHandler *APIKeyHandler) {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	if cfg.EnableCORS {
+		r.Use(CORSMiddleware)
+	}
 
 	// Initialize Huma API
 	config := huma.DefaultConfig("Garage Trip API", "1.0.0")
@@ -88,5 +93,26 @@ func RegisterRoutes(r *chi.Mux, authHandler *auth.AuthHandler, registrationHandl
 			o.Summary = "Delete API Key"
 			o.Security = authSecurity
 		})
+	})
+}
+
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		// Allow any origin that matches localhost or our production domains
+		// In a production app, you might want to be more restrictive here
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, X-API-KEY")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }

@@ -18,6 +18,7 @@ type Config struct {
 	JWTSecret                     string `mapstructure:"JWT_SECRET"`
 	FrontendURL                   string `mapstructure:"FRONTEND_URL"`
 	AchievementPrefix             string `mapstructure:"ACHIEVEMENT_PREFIX"`
+	EnableCORS                    bool   `mapstructure:"ENABLE_CORS"`
 }
 
 func LoadConfig() *Config {
@@ -25,7 +26,7 @@ func LoadConfig() *Config {
 	viper.SetDefault("DATABASE_PATH", "garage.db")
 	viper.SetDefault("DISCORD_REDIRECT_URL", "http://127.0.0.1:8080/auth/discord/callback")
 	viper.SetDefault("DISCORD_GUILD_ID", "750810991897608293")
-	viper.SetDefault("FRONTEND_URL", "http://127.0.0.1:4000")
+	viper.SetDefault("FRONTEND_URL", "http://127.0.0.1:4000/register")
 	viper.SetDefault("ACHIEVEMENT_PREFIX", "achievement::")
 
 	viper.BindEnv("DISCORD_CLIENT_ID")
@@ -36,6 +37,7 @@ func LoadConfig() *Config {
 	viper.BindEnv("JWT_SECRET")
 	viper.BindEnv("FRONTEND_URL")
 	viper.BindEnv("ACHIEVEMENT_PREFIX")
+	viper.BindEnv("ENABLE_CORS")
 
 	viper.AutomaticEnv()
 

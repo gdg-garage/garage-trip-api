@@ -100,7 +100,7 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeRespon
 	res.Body.Email = user.Email
 
 	// 1. Check Paid status
-	res.Body.Paid = h.isPaid(user.DiscordID)
+	res.Body.Paid = h.isPaid(user.DiscordID, input.Event)
 
 	// 2. Fetch Registration
 	var regs []models.Registration
@@ -115,10 +115,14 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeRespon
 	return res, nil
 }
 
-func (h *AuthHandler) isPaid(discordID string) bool {
-	hasRole, err := h.CheckRole(discordID, "g::t::7.0.0::paid")
+func (h *AuthHandler) isPaid(discordID string, event string) bool {
+	if event == "" {
+		return false
+	}
+	roleName := event + "::paid"
+	hasRole, err := h.CheckRole(discordID, roleName)
 	if err != nil {
-		log.Printf("Error checking paid role: %v\n", err)
+		log.Printf("Error checking paid role %s: %v\n", roleName, err)
 		return false
 	}
 	return hasRole
@@ -168,10 +172,6 @@ func (h *AuthHandler) CheckRole(discordID string, roleName string) (bool, error)
 
 // Authorize returns the user ID from context or parses the auth_token from a Cookie header string
 func (h *AuthHandler) Authorize(ctx context.Context, cookieHeader string) (uint, error) {
-	if userID, ok := ctx.Value(UserIDKey).(uint); ok {
-		return userID, nil
-	}
-
 	if cookieHeader == "" {
 		return 0, huma.Error401Unauthorized("Unauthorized: No cookies found")
 	}
@@ -301,6 +301,8 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 		Expires:  time.Now().Add(TokenDuration),
 		HttpOnly: true,
 		Path:     "/",
+		SameSite: http.SameSiteNoneMode,
+		Secure:   true,
 	}
 
 	res := &CallbackResponse{

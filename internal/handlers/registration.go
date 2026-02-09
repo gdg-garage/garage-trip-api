@@ -112,7 +112,7 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 
 type HistoryRequest struct {
 	auth.AuthInput
-	Diff *bool `query:"diff" default:"true" doc:"If true, returns only changed fields compared to the previous history entry"`
+	Diff bool `query:"diff" default:"true" doc:"If true, returns only changed fields compared to the previous history entry"`
 }
 
 type RegistrationFieldsResponse struct {
@@ -148,15 +148,17 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 	}
 
 	var history []models.RegistrationHistory
-	if err := h.db.Where("user_id = ?", userID).Order("created_at DESC").Find(&history).Error; err != nil {
+	query := h.db.Where("user_id = ?", userID)
+	if input.Event != "" {
+		query = query.Where("event = ?", input.Event)
+	}
+
+	if err := query.Order("created_at DESC").Find(&history).Error; err != nil {
 		return nil, huma.Error500InternalServerError("Failed to fetch history: " + err.Error())
 	}
 
 	responseItems := make([]RegistrationHistoryResponseItem, 0, len(history))
-	diff := true
-	if input.Diff != nil {
-		diff = *input.Diff
-	}
+	diff := input.Diff
 
 	for i, item := range history {
 		respItem := RegistrationHistoryResponseItem{
@@ -173,12 +175,12 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 		if !diff || i == len(history)-1 {
 			// Return full object if diff is disabled or it's the oldest item (no previous to compare)
 			respItem.RegistrationFields = RegistrationFieldsResponse{
-				ArrivalDate:      &item.ArrivalDate,
-				DepartureDate:    &item.DepartureDate,
-				FoodRestrictions: &item.FoodRestrictions,
-				ChildrenCount:    &item.ChildrenCount,
-				Cancelled:        &item.Cancelled,
-				Note:             &item.Note,
+				ArrivalDate:      &history[i].ArrivalDate,
+				DepartureDate:    &history[i].DepartureDate,
+				FoodRestrictions: &history[i].FoodRestrictions,
+				ChildrenCount:    &history[i].ChildrenCount,
+				Cancelled:        &history[i].Cancelled,
+				Note:             &history[i].Note,
 			}
 		} else {
 			// Compare with previous item (which is next in the list since we ordered DESC)
@@ -186,22 +188,22 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 			fields := RegistrationFieldsResponse{}
 
 			if !item.ArrivalDate.Equal(prev.ArrivalDate) {
-				fields.ArrivalDate = &item.ArrivalDate
+				fields.ArrivalDate = &history[i].ArrivalDate
 			}
 			if !item.DepartureDate.Equal(prev.DepartureDate) {
-				fields.DepartureDate = &item.DepartureDate
+				fields.DepartureDate = &history[i].DepartureDate
 			}
 			if item.FoodRestrictions != prev.FoodRestrictions {
-				fields.FoodRestrictions = &item.FoodRestrictions
+				fields.FoodRestrictions = &history[i].FoodRestrictions
 			}
 			if item.ChildrenCount != prev.ChildrenCount {
-				fields.ChildrenCount = &item.ChildrenCount
+				fields.ChildrenCount = &history[i].ChildrenCount
 			}
 			if item.Cancelled != prev.Cancelled {
-				fields.Cancelled = &item.Cancelled
+				fields.Cancelled = &history[i].Cancelled
 			}
 			if item.Note != prev.Note {
-				fields.Note = &item.Note
+				fields.Note = &history[i].Note
 			}
 			respItem.RegistrationFields = fields
 		}
@@ -215,7 +217,6 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 
 type ListRegistrationsRequest struct {
 	auth.AuthInput `doc:"Restricted to users with the 'g::t::orgs' role"`
-	Event          string `query:"event" doc:"Optional event ID to filter by"`
 }
 
 type ListRegistrationsResponse struct {

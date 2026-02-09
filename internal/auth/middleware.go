@@ -78,6 +78,8 @@ func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
 							Expires:  time.Now().Add(TokenDuration),
 							HttpOnly: true,
 							Path:     "/",
+							SameSite: http.SameSiteNoneMode,
+							Secure:   true,
 						}
 						http.SetCookie(w, cookie)
 					}
