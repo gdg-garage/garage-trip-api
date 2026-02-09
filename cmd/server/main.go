@@ -37,7 +37,7 @@ func main() {
 	}
 
 	authHandler := auth.NewAuthHandler(cfg, db, discordSession)
-	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier, authHandler)
+	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier, authHandler, cfg)
 	achievementHandler := handlers.NewAchievementHandler(db, discordNotifier, authHandler)
 	apiKeyHandler := handlers.NewAPIKeyHandler(db, authHandler)
 

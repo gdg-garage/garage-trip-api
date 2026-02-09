@@ -6,6 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
+	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
 	"github.com/gdg-garage/garage-trip-api/internal/notifier"
 	"gorm.io/gorm"
@@ -15,10 +16,11 @@ type RegistrationHandler struct {
 	db          *gorm.DB
 	notifier    notifier.Notifier
 	authHandler *auth.AuthHandler
+	cfg         *config.Config
 }
 
-func NewRegistrationHandler(db *gorm.DB, notifier notifier.Notifier, authHandler *auth.AuthHandler) *RegistrationHandler {
-	return &RegistrationHandler{db: db, notifier: notifier, authHandler: authHandler}
+func NewRegistrationHandler(db *gorm.DB, notifier notifier.Notifier, authHandler *auth.AuthHandler, cfg *config.Config) *RegistrationHandler {
+	return &RegistrationHandler{db: db, notifier: notifier, authHandler: authHandler, cfg: cfg}
 }
 
 type RegistrationRequest struct {
@@ -54,6 +56,18 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 
 	if userID == 0 {
 		return nil, huma.Error401Unauthorized("Unauthorized: Invalid user ID")
+	}
+
+	// Validate event
+	eventEnabled := false
+	for _, e := range h.cfg.EnabledEvents {
+		if e == input.Body.Event {
+			eventEnabled = true
+			break
+		}
+	}
+	if !eventEnabled {
+		return nil, huma.Error400BadRequest("Event " + input.Body.Event + " is not enabled for registration")
 	}
 
 	var registration models.Registration

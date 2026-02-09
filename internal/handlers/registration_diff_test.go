@@ -25,8 +25,9 @@ func TestHandleHistory_Diff(t *testing.T) {
 	user := models.User{DiscordID: "diff-user"}
 	db.Create(&user)
 
-	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db, nil)
-	handler := NewRegistrationHandler(db, nil, authHandler)
+	testCfg := &config.Config{JWTSecret: "test-secret", EnabledEvents: []string{"ev1"}}
+	authHandler := auth.NewAuthHandler(testCfg, db, nil)
+	handler := NewRegistrationHandler(db, nil, authHandler, testCfg)
 
 	token, _ := authHandler.GenerateToken(user.ID)
 	authCookie := "auth_token=" + token

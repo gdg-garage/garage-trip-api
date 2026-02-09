@@ -25,8 +25,9 @@ func TestHandleRegister(t *testing.T) {
 	user := models.User{DiscordID: "123456789"}
 	db.Create(&user)
 
-	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db, nil)
-	handler := NewRegistrationHandler(db, nil, authHandler)
+	testCfg := &config.Config{JWTSecret: "test-secret", EnabledEvents: []string{"test-event-1", "g::t::7.0.0"}}
+	authHandler := auth.NewAuthHandler(testCfg, db, nil)
+	handler := NewRegistrationHandler(db, nil, authHandler, testCfg)
 
 	arrival := time.Now().Add(24 * time.Hour)
 	departure := time.Now().Add(48 * time.Hour)
@@ -136,5 +137,39 @@ func TestHandleRegister(t *testing.T) {
 	db.Model(&models.RegistrationHistory{}).Count(&historyCount)
 	if historyCount != 3 {
 		t.Errorf("expected 3 history entries in DB, got %d", historyCount)
+	}
+}
+func TestHandleRegister_EnabledEvents(t *testing.T) {
+	// Setup in-memory DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to connect database: %v", err)
+	}
+	db.AutoMigrate(&models.Registration{}, &models.User{}, &models.RegistrationHistory{})
+
+	user := models.User{DiscordID: "test-user"}
+	db.Create(&user)
+
+	testCfg := &config.Config{JWTSecret: "test-secret", EnabledEvents: []string{"enabled-event"}}
+	authHandler := auth.NewAuthHandler(testCfg, db, nil)
+	handler := NewRegistrationHandler(db, nil, authHandler, testCfg)
+
+	token, _ := authHandler.GenerateToken(user.ID)
+	authCookie := "auth_token=" + token
+
+	// Test case 1: Enabled event
+	reqEnabled := RegistrationRequest{}
+	reqEnabled.Cookie = authCookie
+	reqEnabled.Body.Event = "enabled-event"
+	if _, err := handler.HandleRegister(context.Background(), &reqEnabled); err != nil {
+		t.Errorf("Expected success for enabled event, got error: %v", err)
+	}
+
+	// Test case 2: Disabled event
+	reqDisabled := RegistrationRequest{}
+	reqDisabled.Cookie = authCookie
+	reqDisabled.Body.Event = "disabled-event"
+	if _, err := handler.HandleRegister(context.Background(), &reqDisabled); err == nil {
+		t.Error("Expected error for disabled event, got nil")
 	}
 }

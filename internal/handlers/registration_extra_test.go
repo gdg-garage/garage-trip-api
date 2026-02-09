@@ -24,8 +24,9 @@ func TestHandleRegister_SeparateEvents(t *testing.T) {
 	user := models.User{DiscordID: "123456789"}
 	db.Create(&user)
 
-	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db, nil)
-	handler := NewRegistrationHandler(db, nil, authHandler)
+	testCfg := &config.Config{JWTSecret: "test-secret", EnabledEvents: []string{"Event-A", "Event-B"}}
+	authHandler := auth.NewAuthHandler(testCfg, db, nil)
+	handler := NewRegistrationHandler(db, nil, authHandler, testCfg)
 
 	token, _ := authHandler.GenerateToken(user.ID)
 	authCookie := "auth_token=" + token

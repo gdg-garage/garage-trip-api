@@ -33,8 +33,9 @@ func TestHandleRegister_MultiUser(t *testing.T) {
 
 	t.Logf("User1 ID: %d, User2 ID: %d", user1.ID, user2.ID)
 
-	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db, nil)
-	handler := NewRegistrationHandler(db, nil, authHandler)
+	testCfg := &config.Config{JWTSecret: "test-secret", EnabledEvents: []string{"event-1", "event-2"}}
+	authHandler := auth.NewAuthHandler(testCfg, db, nil)
+	handler := NewRegistrationHandler(db, nil, authHandler, testCfg)
 
 	// User 1 registers
 	arrival := time.Now().Add(24 * time.Hour)
@@ -122,12 +123,14 @@ func TestHandleRegister_ZeroUserID(t *testing.T) {
 	user1 := models.User{DiscordID: "user1", Username: "user1"}
 	db.Create(&user1) // Should get ID 1
 
-	authHandler := auth.NewAuthHandler(&config.Config{JWTSecret: "test-secret"}, db, nil)
-	handler := NewRegistrationHandler(db, nil, authHandler)
+	testCfg := &config.Config{JWTSecret: "test-secret", EnabledEvents: []string{"event-1"}}
+	authHandler := auth.NewAuthHandler(testCfg, db, nil)
+	handler := NewRegistrationHandler(db, nil, authHandler, testCfg)
 
 	// Register for user 1
 	req1 := RegistrationRequest{}
 	req1.Body.FoodRestrictions = "User1"
+	req1.Body.Event = "event-1"
 	token1, _ := authHandler.GenerateToken(user1.ID)
 	req1.Cookie = "auth_token=" + token1
 	handler.HandleRegister(context.Background(), &req1)
