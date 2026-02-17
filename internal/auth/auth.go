@@ -100,7 +100,7 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeRespon
 	res.Body.Email = user.Email
 
 	// 1. Check Paid status
-	res.Body.Paid = h.isPaid(user.DiscordID, input.Event)
+	res.Body.Paid = h.IsPaid(user.DiscordID, input.Event)
 
 	// 2. Fetch Registration
 	var regs []models.Registration
@@ -115,7 +115,31 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeRespon
 	return res, nil
 }
 
-func (h *AuthHandler) isPaid(discordID string, event string) bool {
+type LogoutResponse struct {
+	SetCookie string `header:"Set-Cookie"`
+	Body      struct {
+		Message string `json:"message"`
+	}
+}
+
+func (h *AuthHandler) HandleLogout(ctx context.Context, input *struct{}) (*LogoutResponse, error) {
+	cookie := &http.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		Path:     "/",
+		SameSite: http.SameSiteNoneMode,
+		Secure:   true,
+	}
+
+	res := &LogoutResponse{}
+	res.SetCookie = cookie.String()
+	res.Body.Message = "Logged out successfully"
+	return res, nil
+}
+
+func (h *AuthHandler) IsPaid(discordID string, event string) bool {
 	if event == "" {
 		return false
 	}

@@ -7,3 +7,6 @@ garage.db
 # Binaries
 /server
 main
+
+# IDE
+.vscode/

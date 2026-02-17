@@ -43,6 +43,7 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 	// Auth routes
 	huma.Get(api, "/auth/discord/login", authHandler.HandleLogin)
 	huma.Get(api, "/auth/discord/callback", authHandler.HandleCallback)
+	huma.Get(api, "/auth/logout", authHandler.HandleLogout)
 
 	// Protected routes
 	r.Group(func(r chi.Router) {

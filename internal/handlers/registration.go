@@ -233,9 +233,14 @@ type ListRegistrationsRequest struct {
 	auth.AuthInput `doc:"Restricted to users with the 'g::t::orgs' role"`
 }
 
+type RegistrationListItem struct {
+	models.Registration
+	Paid bool `json:"paid"`
+}
+
 type ListRegistrationsResponse struct {
 	Body struct {
-		Registrations []models.Registration `json:"registrations" doc:"List of all registrations"`
+		Registrations []RegistrationListItem `json:"registrations" doc:"List of all registrations"`
 	}
 }
 
@@ -273,7 +278,15 @@ func (h *RegistrationHandler) HandleListRegistrations(ctx context.Context, input
 		return nil, huma.Error500InternalServerError("Failed to fetch registrations: " + err.Error())
 	}
 
+	resItems := make([]RegistrationListItem, len(registrations))
+	for i, reg := range registrations {
+		resItems[i] = RegistrationListItem{
+			Registration: reg,
+			Paid:         h.authHandler.IsPaid(reg.User.DiscordID, reg.Event),
+		}
+	}
+
 	res := &ListRegistrationsResponse{}
-	res.Body.Registrations = registrations
+	res.Body.Registrations = resItems
 	return res, nil
 }
