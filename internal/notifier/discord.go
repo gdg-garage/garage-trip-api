@@ -3,6 +3,8 @@ package notifier
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
@@ -67,15 +69,6 @@ func (n *DiscordNotifier) NotifyAchievement(user models.User, achievement models
 		return fmt.Errorf("discord session is nil or channel ID is empty")
 	}
 
-	message := fmt.Sprintf("🏆 **Achievement Unlocked!**\n**User:** %s (<@%s>)\n**Achievement:** %s",
-		user.Username,
-		user.DiscordID,
-		achievement.Name,
-	)
-	if showGrantor {
-		message += fmt.Sprintf("\n**Granted By:** %s", grantor.Username)
-	}
-
 	embed := &discordgo.MessageEmbed{
 		Title:       "Achievement Unlocked! 🏆",
 		Description: fmt.Sprintf("<@%s> has unlocked the **%s** achievement!", user.DiscordID, achievement.Name),
@@ -92,21 +85,45 @@ func (n *DiscordNotifier) NotifyAchievement(user models.User, achievement models
 		}
 	}
 
+	var files []*discordgo.File
 	if achievement.Image != "" {
-		embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
-			URL: achievement.Image,
+		// Check if it's a URL or a local file
+		if len(achievement.Image) > 4 && achievement.Image[:4] == "http" {
+			embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
+				URL: achievement.Image,
+			}
+		} else {
+			// Local file
+			f, err := os.Open(achievement.Image)
+			if err != nil {
+				log.Printf("Failed to open achievement image: %v", err)
+			} else {
+				defer f.Close()
+				filename := filepath.Base(achievement.Image)
+				embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
+					URL: "attachment://" + filename,
+				}
+				files = append(files, &discordgo.File{
+					Name:   filename,
+					Reader: f,
+				})
+			}
 		}
 	}
 
-	_, err := n.session.ChannelMessageSendEmbed(n.channelID, embed)
-	// Fallback to simple message if embed fails (e.g. permission issues or image issues, though rare)
+	var err error
+	if len(files) > 0 {
+		_, err = n.session.ChannelMessageSendComplex(n.channelID, &discordgo.MessageSend{
+			Embeds: []*discordgo.MessageEmbed{embed},
+			Files:  files,
+		})
+	} else {
+		_, err = n.session.ChannelMessageSendEmbed(n.channelID, embed)
+	}
+
 	if err != nil {
-		log.Printf("Failed to send discord embed: %v. Falling back to text.", err)
-		_, err = n.session.ChannelMessageSend(n.channelID, message)
-		if err != nil {
-			log.Printf("Failed to send discord message: %v", err)
-			return err
-		}
+		log.Printf("Failed to send discord message: %v", err)
+		return err
 	}
 
 	return nil

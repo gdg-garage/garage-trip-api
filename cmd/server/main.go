@@ -38,7 +38,7 @@ func main() {
 
 	authHandler := auth.NewAuthHandler(cfg, db, discordSession)
 	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier, authHandler, cfg)
-	achievementHandler := handlers.NewAchievementHandler(db, discordNotifier, authHandler)
+	achievementHandler := handlers.NewAchievementHandler(db, discordNotifier, authHandler, cfg)
 	apiKeyHandler := handlers.NewAPIKeyHandler(db, authHandler)
 
 	// Initialize Router

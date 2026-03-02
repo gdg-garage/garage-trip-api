@@ -7,7 +7,7 @@ import (
 type Achievement struct {
 	gorm.Model
 	Name          string `json:"name"`
-	Image         string `json:"image"` // URL to image
+	Image         string `json:"image"` // Path to local image file
 	DiscordRoleID string `json:"discord_role_id"`
 	Code          string `gorm:"uniqueIndex" json:"code"`
 }

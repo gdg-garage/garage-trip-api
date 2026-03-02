@@ -3,10 +3,14 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
+	"github.com/gdg-garage/garage-trip-api/internal/config"
 	"github.com/gdg-garage/garage-trip-api/internal/models"
 	"github.com/gdg-garage/garage-trip-api/internal/notifier"
 	"gorm.io/gorm"
@@ -16,19 +20,18 @@ type AchievementHandler struct {
 	db          *gorm.DB
 	notifier    notifier.Notifier
 	authHandler *auth.AuthHandler
+	config      *config.Config
 }
 
-func NewAchievementHandler(db *gorm.DB, notifier notifier.Notifier, authHandler *auth.AuthHandler) *AchievementHandler {
-	return &AchievementHandler{db: db, notifier: notifier, authHandler: authHandler}
+func NewAchievementHandler(db *gorm.DB, notifier notifier.Notifier, authHandler *auth.AuthHandler, cfg *config.Config) *AchievementHandler {
+	return &AchievementHandler{db: db, notifier: notifier, authHandler: authHandler, config: cfg}
 }
 
 type CreateAchievementRequest struct {
 	auth.AuthInput
-	Body struct {
-		Name  string `json:"name" doc:"Name of the achievement" required:"true"`
-		Image string `json:"image" doc:"URL to image of the achievement"`
-		Code  string `json:"code" doc:"Unique secret code for the achievement" required:"true"`
-	}
+	Name  string         `form:"name"`
+	Code  string         `form:"code"`
+	Image *huma.FormFile `form:"image"`
 }
 
 type CreateAchievementResponse struct {
@@ -59,17 +62,50 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 		return nil, huma.Error403Forbidden("Access denied: missing g::t::orgs role")
 	}
 
-	// 3. Create Discord Role
-	roleID, err := h.notifier.CreateRole(input.Body.Name)
+	// 3. Validate Input
+	if input.Name == "" || input.Code == "" {
+		return nil, huma.Error400BadRequest("Name and code are required")
+	}
+
+	// Check if already exists
+	var existing models.Achievement
+	if err := h.db.Where("code = ?", input.Code).First(&existing).Error; err == nil {
+		return nil, huma.Error409Conflict("Achievement with this code already exists")
+	}
+
+	// 4. Handle Image Upload
+	var imagePath string
+	if input.Image != nil && input.Image.IsSet {
+		// Ensure directory exists
+		if err := os.MkdirAll(h.config.UploadDir, 0755); err != nil {
+			return nil, huma.Error500InternalServerError("Failed to create upload directory: " + err.Error())
+		}
+
+		// Save file
+		filename := fmt.Sprintf("%s%s", input.Code, filepath.Ext(input.Image.Filename))
+		imagePath = filepath.Join(h.config.UploadDir, filename)
+		dst, err := os.Create(imagePath)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("Failed to create destination file: " + err.Error())
+		}
+		defer dst.Close()
+
+		if _, err := io.Copy(dst, input.Image); err != nil {
+			return nil, huma.Error500InternalServerError("Failed to save file: " + err.Error())
+		}
+	}
+
+	// 5. Create Discord Role
+	roleID, err := h.notifier.CreateRole(input.Name)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Failed to create discord role: " + err.Error())
 	}
 
-	// 4. Create Achievement
+	// 6. Create Achievement
 	achievement := models.Achievement{
-		Name:          input.Body.Name,
-		Image:         input.Body.Image,
-		Code:          input.Body.Code,
+		Name:          input.Name,
+		Image:         imagePath,
+		Code:          input.Code,
 		DiscordRoleID: roleID,
 	}
 

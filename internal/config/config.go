@@ -20,6 +20,7 @@ type Config struct {
 	AchievementPrefix             string   `mapstructure:"ACHIEVEMENT_PREFIX"`
 	EnableCORS                    bool     `mapstructure:"ENABLE_CORS"`
 	EnabledEvents                 []string `mapstructure:"ENABLED_EVENTS"`
+	UploadDir                     string   `mapstructure:"UPLOAD_DIR"`
 }
 
 func LoadConfig() *Config {
@@ -30,6 +31,7 @@ func LoadConfig() *Config {
 	viper.SetDefault("FRONTEND_URL", "http://127.0.0.1:4000/register")
 	viper.SetDefault("ACHIEVEMENT_PREFIX", "achievement::")
 	viper.SetDefault("ENABLED_EVENTS", []string{"g::t::7.0.0"})
+	viper.SetDefault("UPLOAD_DIR", "uploads/achievements")
 
 	viper.BindEnv("DISCORD_CLIENT_ID")
 	viper.BindEnv("DISCORD_CLIENT_SECRET")
@@ -41,6 +43,7 @@ func LoadConfig() *Config {
 	viper.BindEnv("ACHIEVEMENT_PREFIX")
 	viper.BindEnv("ENABLE_CORS")
 	viper.BindEnv("ENABLED_EVENTS")
+	viper.BindEnv("UPLOAD_DIR")
 
 	viper.AutomaticEnv()
 
