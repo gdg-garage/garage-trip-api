@@ -29,9 +29,9 @@ func NewAchievementHandler(db *gorm.DB, notifier notifier.Notifier, authHandler 
 
 type CreateAchievementRequest struct {
 	auth.AuthInput
-	Name  string         `form:"name"`
-	Code  string         `form:"code"`
-	Image *huma.FormFile `form:"image"`
+	Name  string        `form:"name"`
+	Code  string        `form:"code"`
+	Image huma.FormFile `form:"image"`
 }
 
 type CreateAchievementResponse struct {
@@ -75,7 +75,7 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 
 	// 4. Handle Image Upload
 	var imagePath string
-	if input.Image != nil && input.Image.IsSet {
+	if input.Image.IsSet {
 		// Ensure directory exists
 		if err := os.MkdirAll(h.config.UploadDir, 0755); err != nil {
 			return nil, huma.Error500InternalServerError("Failed to create upload directory: " + err.Error())
