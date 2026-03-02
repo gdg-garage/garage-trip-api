@@ -11,4 +11,5 @@ services:
       - .env
     volumes:
       - ./garage.db:/app/data/garage.db
+      - ./uploads:/app/uploads
     restart: unless-stopped
