@@ -77,7 +77,7 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 
 	// 4. Handle Image Upload
 	var imagePath string
-	if input.Body.Image.IsSet {
+	if input.Body.Image.IsSet && input.Body.Image.File != nil {
 		// Ensure directory exists
 		if err := os.MkdirAll(h.config.UploadDir, 0755); err != nil {
 			return nil, huma.Error500InternalServerError("Failed to create upload directory: " + err.Error())
@@ -92,7 +92,7 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 		}
 		defer dst.Close()
 
-		if _, err := io.Copy(dst, input.Body.Image); err != nil {
+		if _, err := io.Copy(dst, input.Body.Image.File); err != nil {
 			return nil, huma.Error500InternalServerError("Failed to save file: " + err.Error())
 		}
 	}
