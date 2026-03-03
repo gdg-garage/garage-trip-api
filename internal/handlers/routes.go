@@ -66,7 +66,7 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 		})
 		huma.Get(api, "/registrations", registrationHandler.HandleListRegistrations, func(o *huma.Operation) {
 			o.Summary = "List all registrations"
-			o.Description = "Returns a list of all registrations. Restricted to users with the 'g::t::orgs' role."
+			o.Description = "Returns a list of all registrations. Restricted to users with the '" + cfg.OrgRole + "' role."
 			o.Security = authSecurity
 		})
 

@@ -126,7 +126,8 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 
 type HistoryRequest struct {
 	auth.AuthInput
-	Diff bool `query:"diff" default:"true" doc:"If true, returns only changed fields compared to the previous history entry"`
+	Event string `query:"event" doc:"Optional event ID to filter by"`
+	Diff  bool   `query:"diff" default:"true" doc:"If true, returns only changed fields compared to the previous history entry"`
 }
 
 type RegistrationFieldsResponse struct {
@@ -230,7 +231,8 @@ func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryR
 }
 
 type ListRegistrationsRequest struct {
-	auth.AuthInput `doc:"Restricted to users with the 'g::t::orgs' role"`
+	auth.AuthInput `doc:"Restricted to org users"`
+	Event          string `query:"event" doc:"Optional event ID to filter by"`
 }
 
 type RegistrationListItem struct {
@@ -258,12 +260,12 @@ func (h *RegistrationHandler) HandleListRegistrations(ctx context.Context, input
 	}
 
 	// 3. Check Role
-	hasRole, err := h.authHandler.CheckRole(user.DiscordID, "g::t::orgs")
+	hasRole, err := h.authHandler.CheckRole(user.DiscordID, h.cfg.OrgRole)
 	if err != nil {
 		return nil, err
 	}
 	if !hasRole {
-		return nil, huma.Error403Forbidden("Access denied: missing g::t::orgs role")
+		return nil, huma.Error403Forbidden("Access denied: missing " + h.cfg.OrgRole + " role")
 	}
 
 	// 4. Fetch all registrations

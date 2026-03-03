@@ -31,8 +31,10 @@ func TestHandleMe(t *testing.T) {
 
 	t.Run("Authenticated", func(t *testing.T) {
 		token, _ := handler.GenerateToken(user.ID)
-		input := &AuthInput{
-			Cookie: "auth_token=" + token,
+		input := &MeRequest{
+			AuthInput: AuthInput{
+				Cookie: "auth_token=" + token,
+			},
 		}
 		resp, err := handler.HandleMe(context.Background(), input)
 		if err != nil {
@@ -79,7 +81,7 @@ func TestHandleMe(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		input := &AuthInput{}
+		input := &MeRequest{}
 		_, err := handler.HandleMe(context.Background(), input)
 		if err == nil {
 			t.Fatal("expected error for unauthenticated request, got nil")

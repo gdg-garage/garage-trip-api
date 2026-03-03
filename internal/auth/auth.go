@@ -81,10 +81,14 @@ type MeResponse struct {
 
 type AuthInput struct {
 	Cookie string `header:"Cookie" doc:"Authentication cookie containing the auth_token JWT" example:"auth_token=..."`
-	Event  string `query:"event" doc:"Optional event ID to filter by"`
 }
 
-func (h *AuthHandler) HandleMe(ctx context.Context, input *AuthInput) (*MeResponse, error) {
+type MeRequest struct {
+	AuthInput
+	Event string `query:"event" doc:"Optional event ID to filter by"`
+}
+
+func (h *AuthHandler) HandleMe(ctx context.Context, input *MeRequest) (*MeResponse, error) {
 	userID, err := h.Authorize(ctx, input.Cookie)
 	if err != nil {
 		return nil, err

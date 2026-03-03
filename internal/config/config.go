@@ -21,6 +21,7 @@ type Config struct {
 	EnableCORS                    bool     `mapstructure:"ENABLE_CORS"`
 	EnabledEvents                 []string `mapstructure:"ENABLED_EVENTS"`
 	UploadDir                     string   `mapstructure:"UPLOAD_DIR"`
+	OrgRole                       string   `mapstructure:"ORG_ROLE"`
 }
 
 func LoadConfig() *Config {
@@ -32,6 +33,7 @@ func LoadConfig() *Config {
 	viper.SetDefault("ACHIEVEMENT_PREFIX", "achievement::")
 	viper.SetDefault("ENABLED_EVENTS", []string{"g::t::7.0.0"})
 	viper.SetDefault("UPLOAD_DIR", "uploads/achievements")
+	viper.SetDefault("ORG_ROLE", "g::t::orgs")
 
 	viper.BindEnv("DISCORD_CLIENT_ID")
 	viper.BindEnv("DISCORD_CLIENT_SECRET")
@@ -44,6 +46,7 @@ func LoadConfig() *Config {
 	viper.BindEnv("ENABLE_CORS")
 	viper.BindEnv("ENABLED_EVENTS")
 	viper.BindEnv("UPLOAD_DIR")
+	viper.BindEnv("ORG_ROLE")
 
 	viper.AutomaticEnv()
 

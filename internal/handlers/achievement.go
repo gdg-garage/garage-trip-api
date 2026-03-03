@@ -29,9 +29,11 @@ func NewAchievementHandler(db *gorm.DB, notifier notifier.Notifier, authHandler 
 
 type CreateAchievementRequest struct {
 	auth.AuthInput
-	Name  string        `form:"name"`
-	Code  string        `form:"code"`
-	Image huma.FormFile `form:"image"`
+	Body struct {
+		Name  string        `form:"name"`
+		Code  string        `form:"code"`
+		Image huma.FormFile `form:"image"`
+	}
 }
 
 type CreateAchievementResponse struct {
@@ -54,35 +56,35 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 		return nil, huma.Error404NotFound("User not found")
 	}
 
-	hasRole, err := h.authHandler.CheckRole(user.DiscordID, "g::t::orgs")
+	hasRole, err := h.authHandler.CheckRole(user.DiscordID, h.config.OrgRole)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Failed to check role: " + err.Error())
 	}
 	if !hasRole {
-		return nil, huma.Error403Forbidden("Access denied: missing g::t::orgs role")
+		return nil, huma.Error403Forbidden("Access denied: missing " + h.config.OrgRole + " role")
 	}
 
 	// 3. Validate Input
-	if input.Name == "" || input.Code == "" {
+	if input.Body.Name == "" || input.Body.Code == "" {
 		return nil, huma.Error400BadRequest("Name and code are required")
 	}
 
 	// Check if already exists
 	var existing models.Achievement
-	if err := h.db.Where("code = ?", input.Code).First(&existing).Error; err == nil {
+	if err := h.db.Where("code = ?", input.Body.Code).First(&existing).Error; err == nil {
 		return nil, huma.Error409Conflict("Achievement with this code already exists")
 	}
 
 	// 4. Handle Image Upload
 	var imagePath string
-	if input.Image.IsSet {
+	if input.Body.Image.IsSet {
 		// Ensure directory exists
 		if err := os.MkdirAll(h.config.UploadDir, 0755); err != nil {
 			return nil, huma.Error500InternalServerError("Failed to create upload directory: " + err.Error())
 		}
 
 		// Save file
-		filename := fmt.Sprintf("%s%s", input.Code, filepath.Ext(input.Image.Filename))
+		filename := fmt.Sprintf("%s%s", input.Body.Code, filepath.Ext(input.Body.Image.Filename))
 		imagePath = filepath.Join(h.config.UploadDir, filename)
 		dst, err := os.Create(imagePath)
 		if err != nil {
@@ -90,22 +92,22 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 		}
 		defer dst.Close()
 
-		if _, err := io.Copy(dst, input.Image); err != nil {
+		if _, err := io.Copy(dst, input.Body.Image); err != nil {
 			return nil, huma.Error500InternalServerError("Failed to save file: " + err.Error())
 		}
 	}
 
 	// 5. Create Discord Role
-	roleID, err := h.notifier.CreateRole(input.Name)
+	roleID, err := h.notifier.CreateRole(input.Body.Name)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Failed to create discord role: " + err.Error())
 	}
 
 	// 6. Create Achievement
 	achievement := models.Achievement{
-		Name:          input.Name,
+		Name:          input.Body.Name,
 		Image:         imagePath,
-		Code:          input.Code,
+		Code:          input.Body.Code,
 		DiscordRoleID: roleID,
 	}
 
@@ -150,7 +152,7 @@ func (h *AchievementHandler) HandleGrantAchievement(ctx context.Context, input *
 	// Check if granting to another user
 	if input.Body.UserID != 0 && input.Body.UserID != grantorID {
 		// Must be org
-		hasRole, err := h.authHandler.CheckRole(grantor.DiscordID, "g::t::orgs")
+		hasRole, err := h.authHandler.CheckRole(grantor.DiscordID, h.config.OrgRole)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("Failed to check role: " + err.Error())
 		}
