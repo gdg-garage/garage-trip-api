@@ -33,7 +33,7 @@ type CreateAchievementRequest struct {
 		Name  string        `form:"name"`
 		Code  string        `form:"code"`
 		Image huma.FormFile `form:"image"`
-	}
+	} `contentType:"multipart/form-data"`
 }
 
 type CreateAchievementResponse struct {
