@@ -29,11 +29,11 @@ func NewAchievementHandler(db *gorm.DB, notifier notifier.Notifier, authHandler 
 
 type CreateAchievementRequest struct {
 	auth.AuthInput
-	Body struct {
+	RawBody huma.MultipartFormFiles[struct {
 		Name  string        `form:"name"`
 		Code  string        `form:"code"`
-		Image huma.FormFile `form:"image"`
-	} `contentType:"multipart/form-data"`
+		Image huma.FormFile `form:"image" contentType:"image/*"`
+	}]
 }
 
 type CreateAchievementResponse struct {
@@ -65,26 +65,27 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 	}
 
 	// 3. Validate Input
-	if input.Body.Name == "" || input.Body.Code == "" {
+	data := input.RawBody.Data()
+	if data.Name == "" || data.Code == "" {
 		return nil, huma.Error400BadRequest("Name and code are required")
 	}
 
 	// Check if already exists
 	var existing models.Achievement
-	if err := h.db.Where("code = ?", input.Body.Code).First(&existing).Error; err == nil {
+	if err := h.db.Where("code = ?", data.Code).First(&existing).Error; err == nil {
 		return nil, huma.Error409Conflict("Achievement with this code already exists")
 	}
 
 	// 4. Handle Image Upload
 	var imagePath string
-	if input.Body.Image.IsSet && input.Body.Image.File != nil {
+	if data.Image.IsSet && data.Image.File != nil {
 		// Ensure directory exists
 		if err := os.MkdirAll(h.config.UploadDir, 0755); err != nil {
 			return nil, huma.Error500InternalServerError("Failed to create upload directory: " + err.Error())
 		}
 
 		// Save file
-		filename := fmt.Sprintf("%s%s", input.Body.Code, filepath.Ext(input.Body.Image.Filename))
+		filename := fmt.Sprintf("%s%s", data.Code, filepath.Ext(data.Image.Filename))
 		imagePath = filepath.Join(h.config.UploadDir, filename)
 		dst, err := os.Create(imagePath)
 		if err != nil {
@@ -92,22 +93,22 @@ func (h *AchievementHandler) HandleCreateAchievement(ctx context.Context, input 
 		}
 		defer dst.Close()
 
-		if _, err := io.Copy(dst, input.Body.Image.File); err != nil {
+		if _, err := io.Copy(dst, data.Image.File); err != nil {
 			return nil, huma.Error500InternalServerError("Failed to save file: " + err.Error())
 		}
 	}
 
 	// 5. Create Discord Role
-	roleID, err := h.notifier.CreateRole(input.Body.Name)
+	roleID, err := h.notifier.CreateRole(data.Name)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Failed to create discord role: " + err.Error())
 	}
 
 	// 6. Create Achievement
 	achievement := models.Achievement{
-		Name:          input.Body.Name,
+		Name:          data.Name,
 		Image:         imagePath,
-		Code:          input.Body.Code,
+		Code:          data.Code,
 		DiscordRoleID: roleID,
 	}
 
