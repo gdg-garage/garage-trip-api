@@ -183,6 +183,14 @@ func (h *AchievementHandler) HandleGrantAchievement(ctx context.Context, input *
 		return nil, huma.Error404NotFound("Target user not found")
 	}
 
+	// 4. Check if user already has the role on Discord
+	hasRole, err := h.notifier.HasRole(targetUser.DiscordID, achievement.DiscordRoleID)
+	if err != nil {
+		log.Printf("Failed to check discord role: %v", err)
+	} else if hasRole {
+		return nil, huma.Error409Conflict("User already has the Discord role for this achievement")
+	}
+
 	if err := h.notifier.GrantRole(targetUser.DiscordID, achievement.DiscordRoleID); err != nil {
 		// Log but don't fail complete flow if discord fails? Or fail?
 		// Requirement says "cannot be granted again", implying strong consistency.
@@ -213,6 +221,38 @@ func (h *AchievementHandler) HandleGrantAchievement(ctx context.Context, input *
 
 	res := &GrantAchievementResponse{}
 	res.Body.Message = fmt.Sprintf("Achievement '%s' granted to %s", achievement.Name, targetUser.Username)
+
+	return res, nil
+}
+
+type ListAchievementsRequest struct {
+	auth.AuthInput
+}
+
+type ListAchievementsResponse struct {
+	Body struct {
+		Names []string `json:"names"`
+	}
+}
+
+func (h *AchievementHandler) HandleListAchievements(ctx context.Context, input *ListAchievementsRequest) (*ListAchievementsResponse, error) {
+	_, err := h.authHandler.Authorize(ctx, input.Cookie)
+	if err != nil {
+		return nil, err
+	}
+
+	var achievements []models.Achievement
+	if err := h.db.Find(&achievements).Error; err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch achievements: " + err.Error())
+	}
+
+	names := make([]string, len(achievements))
+	for i, a := range achievements {
+		names[i] = a.Name
+	}
+
+	res := &ListAchievementsResponse{}
+	res.Body.Names = names
 
 	return res, nil
 }

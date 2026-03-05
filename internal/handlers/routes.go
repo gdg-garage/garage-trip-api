@@ -80,6 +80,11 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 			o.Description = "Grants an achievement to a user."
 			o.Security = authSecurity
 		})
+		huma.Get(api, "/achievements", achievementHandler.HandleListAchievements, func(o *huma.Operation) {
+			o.Summary = "List achievements"
+			o.Description = "Returns a list of all achievement names."
+			o.Security = authSecurity
+		})
 
 		// API Key Management Routes
 		huma.Post(api, "/api-keys", apiKeyHandler.HandleCreate, func(o *huma.Operation) {

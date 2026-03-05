@@ -14,7 +14,8 @@ type Config struct {
 	DiscordRedirectURL            string   `mapstructure:"DISCORD_REDIRECT_URL"`
 	DiscordGuildID                string   `mapstructure:"DISCORD_GUILD_ID"`
 	DiscordBotToken               string   `mapstructure:"DISCORD_BOT_TOKEN"`
-	DiscordNotificationsChannelID string   `mapstructure:"DISCORD_NOTIFICATIONS_CHANNEL_ID"`
+	DiscordAchievementsChannelID  string   `mapstructure:"DISCORD_ACHIEVEMENTS_CHANNEL_ID"`
+	DiscordRegistrationsChannelID string   `mapstructure:"DISCORD_REGISTRATIONS_CHANNEL_ID"`
 	JWTSecret                     string   `mapstructure:"JWT_SECRET"`
 	FrontendURL                   string   `mapstructure:"FRONTEND_URL"`
 	AchievementPrefix             string   `mapstructure:"ACHIEVEMENT_PREFIX"`
@@ -39,7 +40,8 @@ func LoadConfig() *Config {
 	viper.BindEnv("DISCORD_CLIENT_SECRET")
 	viper.BindEnv("DISCORD_GUILD_ID")
 	viper.BindEnv("DISCORD_BOT_TOKEN")
-	viper.BindEnv("DISCORD_NOTIFICATIONS_CHANNEL_ID")
+	viper.BindEnv("DISCORD_ACHIEVEMENTS_CHANNEL_ID")
+	viper.BindEnv("DISCORD_REGISTRATIONS_CHANNEL_ID")
 	viper.BindEnv("JWT_SECRET")
 	viper.BindEnv("FRONTEND_URL")
 	viper.BindEnv("ACHIEVEMENT_PREFIX")

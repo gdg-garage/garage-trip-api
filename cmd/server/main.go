@@ -32,8 +32,14 @@ func main() {
 	}
 
 	var discordNotifier *notifier.DiscordNotifier
-	if discordSession != nil && cfg.DiscordNotificationsChannelID != "" {
-		discordNotifier = notifier.NewDiscordNotifier(discordSession, cfg.DiscordNotificationsChannelID, cfg.DiscordGuildID, cfg.AchievementPrefix)
+	if discordSession != nil {
+		discordNotifier = notifier.NewDiscordNotifier(
+			discordSession,
+			cfg.DiscordAchievementsChannelID,
+			cfg.DiscordRegistrationsChannelID,
+			cfg.DiscordGuildID,
+			cfg.AchievementPrefix,
+		)
 	}
 
 	authHandler := auth.NewAuthHandler(cfg, db, discordSession)

@@ -20,21 +20,25 @@ type Notifier interface {
 	NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User, showGrantor bool) error
 	// NotifyRegistration Notify about registration changes
 	NotifyRegistration(user models.User, registration models.Registration) error
+	// HasRole Check if a user has a role
+	HasRole(userID string, roleID string) (bool, error)
 }
 
 type DiscordNotifier struct {
-	session           *discordgo.Session
-	channelID         string
-	guildID           string
-	achievementPrefix string
+	session                *discordgo.Session
+	achievementsChannelID  string
+	registrationsChannelID string
+	guildID                string
+	achievementPrefix      string
 }
 
-func NewDiscordNotifier(session *discordgo.Session, channelID string, guildID string, achievementPrefix string) *DiscordNotifier {
+func NewDiscordNotifier(session *discordgo.Session, achievementsChannelID string, registrationsChannelID string, guildID string, achievementPrefix string) *DiscordNotifier {
 	return &DiscordNotifier{
-		session:           session,
-		channelID:         channelID,
-		guildID:           guildID,
-		achievementPrefix: achievementPrefix,
+		session:                session,
+		achievementsChannelID:  achievementsChannelID,
+		registrationsChannelID: registrationsChannelID,
+		guildID:                guildID,
+		achievementPrefix:      achievementPrefix,
 	}
 }
 
@@ -64,9 +68,28 @@ func (n *DiscordNotifier) GrantRole(userID string, roleID string) error {
 	return nil
 }
 
+func (n *DiscordNotifier) HasRole(userID string, roleID string) (bool, error) {
+	if n.session == nil || n.guildID == "" {
+		return false, fmt.Errorf("discord session is nil or guildID is empty")
+	}
+
+	member, err := n.session.GuildMember(n.guildID, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get guild member: %w", err)
+	}
+
+	for _, id := range member.Roles {
+		if id == roleID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func (n *DiscordNotifier) NotifyAchievement(user models.User, achievement models.Achievement, grantor models.User, showGrantor bool) error {
-	if n.session == nil || n.channelID == "" {
-		return fmt.Errorf("discord session is nil or channel ID is empty")
+	if n.session == nil || n.achievementsChannelID == "" {
+		return fmt.Errorf("discord session is nil or achievements channel ID is empty")
 	}
 
 	embed := &discordgo.MessageEmbed{
@@ -113,12 +136,12 @@ func (n *DiscordNotifier) NotifyAchievement(user models.User, achievement models
 
 	var err error
 	if len(files) > 0 {
-		_, err = n.session.ChannelMessageSendComplex(n.channelID, &discordgo.MessageSend{
+		_, err = n.session.ChannelMessageSendComplex(n.achievementsChannelID, &discordgo.MessageSend{
 			Embeds: []*discordgo.MessageEmbed{embed},
 			Files:  files,
 		})
 	} else {
-		_, err = n.session.ChannelMessageSendEmbed(n.channelID, embed)
+		_, err = n.session.ChannelMessageSendEmbed(n.achievementsChannelID, embed)
 	}
 
 	if err != nil {
@@ -133,8 +156,8 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 	if n.session == nil {
 		return fmt.Errorf("discord session is nil")
 	}
-	if n.channelID == "" {
-		return fmt.Errorf("discord channel ID is empty")
+	if n.registrationsChannelID == "" {
+		return fmt.Errorf("discord registrations channel ID is empty")
 	}
 
 	// Role Management
@@ -192,7 +215,7 @@ func (n *DiscordNotifier) NotifyRegistration(user models.User, registration mode
 		noteStr,
 	)
 
-	_, err := n.session.ChannelMessageSend(n.channelID, message)
+	_, err := n.session.ChannelMessageSend(n.registrationsChannelID, message)
 	if err != nil {
 		log.Printf("Failed to send discord message: %v", err)
 		return err
