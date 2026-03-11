@@ -225,20 +225,33 @@ func (h *AchievementHandler) HandleGrantAchievement(ctx context.Context, input *
 	return res, nil
 }
 
-type ListAchievementsRequest struct {
+type ListOrgAchievementsRequest struct {
 	auth.AuthInput
 }
 
-type ListAchievementsResponse struct {
+type ListOrgAchievementsResponse struct {
 	Body struct {
-		Names []string `json:"names"`
+		Achievements []models.Achievement `json:"achievements"`
 	}
 }
 
-func (h *AchievementHandler) HandleListAchievements(ctx context.Context, input *ListAchievementsRequest) (*ListAchievementsResponse, error) {
-	_, err := h.authHandler.Authorize(ctx, input.Cookie)
+func (h *AchievementHandler) HandleListOrgAchievements(ctx context.Context, input *ListOrgAchievementsRequest) (*ListOrgAchievementsResponse, error) {
+	userId, err := h.authHandler.Authorize(ctx, input.Cookie)
 	if err != nil {
 		return nil, err
+	}
+
+	var user models.User
+	if err := h.db.First(&user, userId).Error; err != nil {
+		return nil, huma.Error404NotFound("User not found")
+	}
+
+	hasRole, err := h.authHandler.CheckRole(user.DiscordID, h.config.OrgRole)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to check role: " + err.Error())
+	}
+	if !hasRole {
+		return nil, huma.Error403Forbidden("Access denied: missing " + h.config.OrgRole + " role")
 	}
 
 	var achievements []models.Achievement
@@ -246,13 +259,48 @@ func (h *AchievementHandler) HandleListAchievements(ctx context.Context, input *
 		return nil, huma.Error500InternalServerError("Failed to fetch achievements: " + err.Error())
 	}
 
-	names := make([]string, len(achievements))
-	for i, a := range achievements {
-		names[i] = a.Name
+	res := &ListOrgAchievementsResponse{}
+	res.Body.Achievements = achievements
+
+	return res, nil
+}
+
+type ListUserAchievementsRequest struct {
+	auth.AuthInput
+}
+
+type UserAchievement struct {
+	Name  string `json:"name"`
+	Image string `json:"image"`
+}
+
+type ListUserAchievementsResponse struct {
+	Body struct {
+		Achievements []UserAchievement `json:"achievements"`
+	}
+}
+
+func (h *AchievementHandler) HandleListUserAchievements(ctx context.Context, input *ListUserAchievementsRequest) (*ListUserAchievementsResponse, error) {
+	userId, err := h.authHandler.Authorize(ctx, input.Cookie)
+	if err != nil {
+		return nil, err
 	}
 
-	res := &ListAchievementsResponse{}
-	res.Body.Names = names
+	var grants []models.AchievementGrant
+	if err := h.db.Preload("Achievement").Where("user_id = ?", userId).Find(&grants).Error; err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch achievements: " + err.Error())
+	}
+
+	achievements := make([]UserAchievement, len(grants))
+	for i, grant := range grants {
+		achievements[i] = UserAchievement{
+			Name:  grant.Achievement.Name,
+			Image: grant.Achievement.Image,
+		}
+	}
+
+	res := &ListUserAchievementsResponse{}
+	res.Body.Achievements = achievements
 
 	return res, nil
 }

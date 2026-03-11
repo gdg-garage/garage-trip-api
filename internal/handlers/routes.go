@@ -80,9 +80,14 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 			o.Description = "Grants an achievement to a user."
 			o.Security = authSecurity
 		})
-		huma.Get(api, "/achievements", achievementHandler.HandleListAchievements, func(o *huma.Operation) {
-			o.Summary = "List achievements"
-			o.Description = "Returns a list of all achievement names."
+		huma.Get(api, "/org/achievements", achievementHandler.HandleListOrgAchievements, func(o *huma.Operation) {
+			o.Summary = "List org achievements"
+			o.Description = "Returns a list of all achievements. Restricted to orgs."
+			o.Security = authSecurity
+		})
+		huma.Get(api, "/me/achievements", achievementHandler.HandleListUserAchievements, func(o *huma.Operation) {
+			o.Summary = "List user achievements"
+			o.Description = "Returns a list of achievements for the authenticated user."
 			o.Security = authSecurity
 		})
 
