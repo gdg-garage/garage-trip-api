@@ -8,5 +8,9 @@ garage.db
 /server
 main
 
+# Data
+uploads/
+server_bin
+
 # IDE
 .vscode/

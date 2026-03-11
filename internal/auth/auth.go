@@ -127,14 +127,19 @@ type LogoutResponse struct {
 }
 
 func (h *AuthHandler) HandleLogout(ctx context.Context, input *struct{}) (*LogoutResponse, error) {
+	isLocal := strings.HasPrefix(h.cfg.FrontendURL, "http://localhost") || strings.HasPrefix(h.cfg.FrontendURL, "http://127.0.0.1")
+
 	cookie := &http.Cookie{
 		Name:     "auth_token",
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
 		Path:     "/",
-		SameSite: http.SameSiteNoneMode,
-		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   !isLocal,
+	}
+	if !isLocal {
+		cookie.SameSite = http.SameSiteNoneMode
 	}
 
 	res := &LogoutResponse{}
@@ -323,14 +328,19 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 		return nil, huma.Error500InternalServerError("Failed to generate token")
 	}
 
+	isLocal := strings.HasPrefix(h.cfg.FrontendURL, "http://localhost") || strings.HasPrefix(h.cfg.FrontendURL, "http://127.0.0.1")
+
 	cookie := &http.Cookie{
 		Name:     "auth_token",
 		Value:    jwtToken,
 		Expires:  time.Now().Add(TokenDuration),
 		HttpOnly: true,
 		Path:     "/",
-		SameSite: http.SameSiteNoneMode,
-		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   !isLocal,
+	}
+	if !isLocal {
+		cookie.SameSite = http.SameSiteNoneMode
 	}
 
 	res := &CallbackResponse{

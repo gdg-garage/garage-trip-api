@@ -229,9 +229,15 @@ type ListOrgAchievementsRequest struct {
 	auth.AuthInput
 }
 
+type OrgAchievement struct {
+	Name          string `json:"name"`
+	Image         string `json:"image"`
+	DiscordRoleID string `json:"discord_role_id"`
+}
+
 type ListOrgAchievementsResponse struct {
 	Body struct {
-		Achievements []models.Achievement `json:"achievements"`
+		Achievements []OrgAchievement `json:"achievements"`
 	}
 }
 
@@ -254,9 +260,18 @@ func (h *AchievementHandler) HandleListOrgAchievements(ctx context.Context, inpu
 		return nil, huma.Error403Forbidden("Access denied: missing " + h.config.OrgRole + " role")
 	}
 
-	var achievements []models.Achievement
-	if err := h.db.Find(&achievements).Error; err != nil {
+	var dbAchievements []models.Achievement
+	if err := h.db.Find(&dbAchievements).Error; err != nil {
 		return nil, huma.Error500InternalServerError("Failed to fetch achievements: " + err.Error())
+	}
+
+	achievements := make([]OrgAchievement, len(dbAchievements))
+	for i, a := range dbAchievements {
+		achievements[i] = OrgAchievement{
+			Name:          a.Name,
+			Image:         a.Image,
+			DiscordRoleID: a.DiscordRoleID,
+		}
 	}
 
 	res := &ListOrgAchievementsResponse{}
