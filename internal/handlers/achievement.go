@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gdg-garage/garage-trip-api/internal/auth"
@@ -25,6 +27,31 @@ type AchievementHandler struct {
 
 func NewAchievementHandler(db *gorm.DB, notifier notifier.Notifier, authHandler *auth.AuthHandler, cfg *config.Config) *AchievementHandler {
 	return &AchievementHandler{db: db, notifier: notifier, authHandler: authHandler, config: cfg}
+}
+
+func (h *AchievementHandler) imageToDataURI(path string) string {
+	if path == "" {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Printf("Failed to read image file %s: %v", path, err)
+		return ""
+	}
+
+	ext := filepath.Ext(path)
+	mimeType := "image/png"
+	switch strings.ToLower(ext) {
+	case ".jpg", ".jpeg":
+		mimeType = "image/jpeg"
+	case ".gif":
+		mimeType = "image/gif"
+	case ".webp":
+		mimeType = "image/webp"
+	case ".svg":
+		mimeType = "image/svg+xml"
+	}
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
 }
 
 type CreateAchievementRequest struct {
@@ -231,7 +258,7 @@ type ListOrgAchievementsRequest struct {
 
 type OrgAchievement struct {
 	Name          string `json:"name"`
-	Image         string `json:"image"`
+	ImageData     string `json:"image_data"`
 	DiscordRoleID string `json:"discord_role_id"`
 }
 
@@ -269,7 +296,7 @@ func (h *AchievementHandler) HandleListOrgAchievements(ctx context.Context, inpu
 	for i, a := range dbAchievements {
 		achievements[i] = OrgAchievement{
 			Name:          a.Name,
-			Image:         a.Image,
+			ImageData:     h.imageToDataURI(a.Image),
 			DiscordRoleID: a.DiscordRoleID,
 		}
 	}
@@ -285,8 +312,8 @@ type ListUserAchievementsRequest struct {
 }
 
 type UserAchievement struct {
-	Name  string `json:"name"`
-	Image string `json:"image"`
+	Name      string `json:"name"`
+	ImageData string `json:"image_data"`
 }
 
 type ListUserAchievementsResponse struct {
@@ -309,8 +336,8 @@ func (h *AchievementHandler) HandleListUserAchievements(ctx context.Context, inp
 	achievements := make([]UserAchievement, len(grants))
 	for i, grant := range grants {
 		achievements[i] = UserAchievement{
-			Name:  grant.Achievement.Name,
-			Image: grant.Achievement.Image,
+			Name:      grant.Achievement.Name,
+			ImageData: h.imageToDataURI(grant.Achievement.Image),
 		}
 	}
 
