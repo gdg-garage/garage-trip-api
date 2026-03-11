@@ -40,6 +40,9 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 		w.Write([]byte("OK"))
 	})
 
+	// Static files for achievements
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(cfg.UploadDir))))
+
 	// Auth routes
 	huma.Get(api, "/auth/discord/login", authHandler.HandleLogin)
 	huma.Get(api, "/auth/discord/callback", authHandler.HandleCallback)
@@ -104,9 +107,6 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 			o.Summary = "Delete API Key"
 			o.Security = authSecurity
 		})
-
-		// Static files for achievements
-		r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(cfg.UploadDir))))
 	})
 }
 
