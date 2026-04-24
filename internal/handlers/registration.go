@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -280,11 +281,33 @@ func (h *RegistrationHandler) HandleListRegistrations(ctx context.Context, input
 		return nil, huma.Error500InternalServerError("Failed to fetch registrations: " + err.Error())
 	}
 
+	// 5. Fetch paid status for all events present in registrations
+	events := make(map[string]bool)
+	for _, reg := range registrations {
+		events[reg.Event] = true
+	}
+
+	paidStatus := make(map[string]map[string]bool)
+	for event := range events {
+		paidMembers, err := h.authHandler.GetPaidMembers(event)
+		if err != nil {
+			log.Printf("Error fetching paid members for event %s: %v\n", event, err)
+			paidStatus[event] = make(map[string]bool)
+		} else {
+			paidStatus[event] = paidMembers
+		}
+	}
+
 	resItems := make([]RegistrationListItem, len(registrations))
 	for i, reg := range registrations {
+		isPaid := false
+		if eventPaidMap, ok := paidStatus[reg.Event]; ok {
+			isPaid = eventPaidMap[reg.User.DiscordID]
+		}
+
 		resItems[i] = RegistrationListItem{
 			Registration: reg,
-			Paid:         h.authHandler.IsPaid(reg.User.DiscordID, reg.Event),
+			Paid:         isPaid,
 		}
 	}
 

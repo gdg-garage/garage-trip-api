@@ -203,6 +203,59 @@ func (h *AuthHandler) CheckRole(discordID string, roleName string) (bool, error)
 	return false, nil
 }
 
+func (h *AuthHandler) GetRoleMembers(roleName string) (map[string]bool, error) {
+	if h.discord == nil || h.cfg.DiscordGuildID == "" {
+		return map[string]bool{}, nil
+	}
+
+	// 1. Get Role ID
+	roles, err := h.discord.GuildRoles(h.cfg.DiscordGuildID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch guild roles: " + err.Error())
+	}
+
+	roleID := ""
+	for _, r := range roles {
+		if r.Name == roleName {
+			roleID = r.ID
+			break
+		}
+	}
+
+	if roleID == "" {
+		log.Printf("Role: %s not found\n", roleName)
+		return map[string]bool{}, nil
+	}
+
+	// 2. Get Member Information
+	members, err := h.discord.GuildMembers(h.cfg.DiscordGuildID, "", 1000)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to fetch guild members: " + err.Error())
+	}
+
+	roleMembers := make(map[string]bool)
+	for _, m := range members {
+		for _, r := range m.Roles {
+			if r == roleID {
+				if m.User != nil {
+					roleMembers[m.User.ID] = true
+				}
+				break
+			}
+		}
+	}
+
+	return roleMembers, nil
+}
+
+func (h *AuthHandler) GetPaidMembers(event string) (map[string]bool, error) {
+	if event == "" {
+		return map[string]bool{}, nil
+	}
+	roleName := event + "::paid"
+	return h.GetRoleMembers(roleName)
+}
+
 // Authorize returns the user ID from context or parses the auth_token from a Cookie header string
 func (h *AuthHandler) Authorize(ctx context.Context, cookieHeader string) (uint, error) {
 	if cookieHeader == "" {
