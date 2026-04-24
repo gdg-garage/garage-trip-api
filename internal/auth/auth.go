@@ -285,7 +285,16 @@ func (h *AuthHandler) HandleCallback(ctx context.Context, input *CallbackInput) 
 		}
 
 		if !isMember {
-			return nil, huma.Error403Forbidden(fmt.Sprintf("Access denied: You are not a member of the required Discord guild: %s", h.cfg.DiscordGuildID))
+			redirectURL := h.cfg.FrontendURL
+			if strings.Contains(redirectURL, "?") {
+				redirectURL += "&error=not_in_guild"
+			} else {
+				redirectURL += "?error=not_in_guild"
+			}
+			return &CallbackResponse{
+				Status:   307,
+				Location: redirectURL,
+			}, nil
 		}
 	}
 
