@@ -42,28 +42,46 @@ func TestListEvents(t *testing.T) {
 	authHandler := auth.NewAuthHandler(cfg, db, nil)
 	eventHandler := NewEventHandler(db, authHandler, cfg)
 
-	res, err := eventHandler.HandleList(context.Background(), &struct{}{})
+	// 1. Unauthenticated request with all events disabled -> should return 0 events
+	res, err := eventHandler.HandleList(context.Background(), &ListEventsRequest{})
 	if err != nil {
 		t.Fatalf("HandleList failed: %v", err)
 	}
-
-	if len(res.Body.Events) < 3 {
-		t.Fatalf("expected at least 3 seeded events, got %d", len(res.Body.Events))
+	if len(res.Body.Events) != 0 {
+		t.Fatalf("expected 0 events for unauthenticated user when all are disabled, got %d", len(res.Body.Events))
 	}
 
-	// Verify GT7 is present and disabled
-	var gt7 *EventItem
-	for i := range res.Body.Events {
-		if res.Body.Events[i].Code == "g::t::7.0.0" {
-			gt7 = &res.Body.Events[i]
-			break
-		}
+	// 2. Enable one event -> unauthenticated user should now see that 1 enabled event
+	db.Model(&models.Event{}).Where("code = ?", "g::t::7.0.0").Update("enabled", true)
+	res, err = eventHandler.HandleList(context.Background(), &ListEventsRequest{})
+	if err != nil {
+		t.Fatalf("HandleList failed: %v", err)
 	}
-	if gt7 == nil {
-		t.Fatal("g::t::7.0.0 not found in events")
+	if len(res.Body.Events) != 1 || res.Body.Events[0].Code != "g::t::7.0.0" {
+		t.Fatalf("expected only g::t::7.0.0 to be returned, got %v", res.Body.Events)
 	}
-	if gt7.Enabled {
-		t.Errorf("expected g::t::7.0.0 to be disabled by default, got enabled")
+
+	// Re-disable g::t::7.0.0
+	db.Model(&models.Event{}).Where("code = ?", "g::t::7.0.0").Update("enabled", false)
+
+	// 3. Authenticated user who registered to past event g::t::6.9
+	user := models.User{DiscordID: "user-1", Username: "Alice"}
+	db.Create(&user)
+	db.Create(&models.Registration{
+		UserID: user.ID,
+		Event:  "g::t::6.9",
+	})
+	token, _ := authHandler.GenerateToken(user.ID)
+
+	res, err = eventHandler.HandleList(context.Background(), &ListEventsRequest{
+		AuthInput: auth.AuthInput{Cookie: "auth_token=" + token},
+	})
+	if err != nil {
+		t.Fatalf("HandleList failed: %v", err)
+	}
+	// Alice should see only past event g::t::6.9, but NOT locked active/future events (g::t::7.0.0 or g::t::8.0.0)
+	if len(res.Body.Events) != 1 || res.Body.Events[0].Code != "g::t::6.9" {
+		t.Fatalf("expected Alice to see only past registered event g::t::6.9, got %v", res.Body.Events)
 	}
 }
 

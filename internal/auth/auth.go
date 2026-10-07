@@ -75,6 +75,7 @@ type MeResponse struct {
 		Username      string                `json:"username"`
 		Email         string                `json:"email"`
 		Paid          bool                  `json:"paid"`
+		IsOrg         bool                  `json:"is_org"`
 		Registrations []models.Registration `json:"registrations"`
 	}
 }
@@ -106,7 +107,11 @@ func (h *AuthHandler) HandleMe(ctx context.Context, input *MeRequest) (*MeRespon
 	// 1. Check Paid status
 	res.Body.Paid = h.IsPaid(user.DiscordID, input.Event)
 
-	// 2. Fetch Registration
+	// 2. Check Org role
+	hasOrgRole, _ := h.CheckRole(user.DiscordID, h.cfg.OrgRole)
+	res.Body.IsOrg = hasOrgRole
+
+	// 3. Fetch Registration
 	var regs []models.Registration
 	query := h.db.Preload("User").Where("user_id = ?", user.ID)
 	if input.Event != "" {

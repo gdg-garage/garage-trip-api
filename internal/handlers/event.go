@@ -73,21 +73,65 @@ func toEventItem(e models.Event) EventItem {
 	}
 }
 
+type ListEventsRequest struct {
+	auth.AuthInput
+	All bool `query:"all" doc:"Return all events including locked ones (org only)"`
+}
+
 type ListEventsResponse struct {
 	Body struct {
-		Events []EventItem `json:"events" doc:"List of all events"`
+		Events []EventItem `json:"events" doc:"List of events"`
 	}
 }
 
-func (h *EventHandler) HandleList(ctx context.Context, input *struct{}) (*ListEventsResponse, error) {
+func isPastEvent(e models.Event) bool {
+	if e.Status == "past" {
+		return true
+	}
+	if e.EndDate != nil && e.EndDate.Before(time.Now()) {
+		return true
+	}
+	return false
+}
+
+func (h *EventHandler) HandleList(ctx context.Context, input *ListEventsRequest) (*ListEventsResponse, error) {
 	var events []models.Event
 	if err := h.db.Order("start_date DESC, id DESC").Find(&events).Error; err != nil {
 		return nil, huma.Error500InternalServerError("Failed to fetch events: " + err.Error())
 	}
 
-	items := make([]EventItem, len(events))
-	for i, e := range events {
-		items[i] = toEventItem(e)
+	if input != nil && input.All {
+		if err := h.checkOrg(ctx, input.Cookie); err != nil {
+			return nil, err
+		}
+		items := make([]EventItem, len(events))
+		for i, e := range events {
+			items[i] = toEventItem(e)
+		}
+		res := &ListEventsResponse{}
+		res.Body.Events = items
+		return res, nil
+	}
+
+	// For regular users / guests:
+	// If authenticated, find user's registered events
+	userRegistered := make(map[string]bool)
+	if input != nil && input.Cookie != "" {
+		if userID, err := h.authHandler.Authorize(ctx, input.Cookie); err == nil {
+			var regs []models.Registration
+			if err := h.db.Where("user_id = ?", userID).Find(&regs).Error; err == nil {
+				for _, r := range regs {
+					userRegistered[r.Event] = true
+				}
+			}
+		}
+	}
+
+	items := make([]EventItem, 0, len(events))
+	for _, e := range events {
+		if e.Enabled || (isPastEvent(e) && userRegistered[e.Code]) {
+			items = append(items, toEventItem(e))
+		}
 	}
 
 	res := &ListEventsResponse{}
