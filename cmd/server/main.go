@@ -46,12 +46,13 @@ func main() {
 	registrationHandler := handlers.NewRegistrationHandler(db, discordNotifier, authHandler, cfg)
 	achievementHandler := handlers.NewAchievementHandler(db, discordNotifier, authHandler, cfg)
 	apiKeyHandler := handlers.NewAPIKeyHandler(db, authHandler)
+	eventHandler := handlers.NewEventHandler(db, authHandler, cfg)
 
 	// Initialize Router
 	r := chi.NewRouter()
 
 	// Register Routes
-	handlers.RegisterRoutes(r, cfg, authHandler, registrationHandler, achievementHandler, apiKeyHandler)
+	handlers.RegisterRoutes(r, cfg, authHandler, registrationHandler, achievementHandler, apiKeyHandler, eventHandler)
 
 	// Start Server
 	log.Printf("Starting server on port %s", cfg.Port)

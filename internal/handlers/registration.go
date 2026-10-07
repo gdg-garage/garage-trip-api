@@ -61,10 +61,15 @@ func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *Registr
 
 	// Validate event
 	eventEnabled := false
-	for _, e := range h.cfg.EnabledEvents {
-		if e == input.Body.Event {
-			eventEnabled = true
-			break
+	var dbEvent models.Event
+	if err := h.db.Where("code = ?", input.Body.Event).First(&dbEvent).Error; err == nil {
+		eventEnabled = dbEvent.Enabled
+	} else {
+		for _, e := range h.cfg.EnabledEvents {
+			if e == input.Body.Event {
+				eventEnabled = true
+				break
+			}
 		}
 	}
 	if !eventEnabled {

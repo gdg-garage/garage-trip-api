@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandler, registrationHandler *RegistrationHandler, achievementHandler *AchievementHandler, apiKeyHandler *APIKeyHandler) {
+func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandler, registrationHandler *RegistrationHandler, achievementHandler *AchievementHandler, apiKeyHandler *APIKeyHandler, eventHandler *EventHandler) {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -38,6 +38,12 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 	// Public routes
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
+	})
+
+	// Events public route
+	huma.Get(api, "/events", eventHandler.HandleList, func(o *huma.Operation) {
+		o.Summary = "List all events"
+		o.Description = "Returns a list of all events (past, active, and future)."
 	})
 
 	// Auth routes
@@ -102,6 +108,23 @@ func RegisterRoutes(r *chi.Mux, cfg *config.Config, authHandler *auth.AuthHandle
 		})
 		huma.Delete(api, "/api-keys/{id}", apiKeyHandler.HandleDelete, func(o *huma.Operation) {
 			o.Summary = "Delete API Key"
+			o.Security = authSecurity
+		})
+
+		// Event Management Routes
+		huma.Post(api, "/events", eventHandler.HandleCreate, func(o *huma.Operation) {
+			o.Summary = "Create event"
+			o.Description = "Creates a new event. Restricted to orgs."
+			o.Security = authSecurity
+		})
+		huma.Put(api, "/events/{id}", eventHandler.HandleUpdate, func(o *huma.Operation) {
+			o.Summary = "Update event"
+			o.Description = "Updates an existing event. Restricted to orgs."
+			o.Security = authSecurity
+		})
+		huma.Post(api, "/events/{id}/toggle", eventHandler.HandleToggle, func(o *huma.Operation) {
+			o.Summary = "Toggle event enabled status"
+			o.Description = "Toggles an event enabled/disabled status. Restricted to orgs."
 			o.Security = authSecurity
 		})
 	})
