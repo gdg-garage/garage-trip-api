@@ -53,7 +53,7 @@ func SeedDefaultEvents(db *gorm.DB) {
 			Location:    "Nové Město na Moravě",
 			Description: "Seventh iteration of the annual GDG Garage coding & gaming retreat.",
 			Enabled:     false,
-			Status:      "active",
+			Status:      "future",
 		},
 		{
 			Code:        "g::t::6.9",
@@ -82,6 +82,9 @@ func SeedDefaultEvents(db *gorm.DB) {
 			db.Create(&e)
 		}
 	}
+
+	// Migrate any existing 'active' events to 'future'
+	db.Model(&models.Event{}).Where("status = ?", "active").Update("status", "future")
 
 	// Also ensure any events currently in registrations table are present
 	var regEvents []string

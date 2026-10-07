@@ -58,6 +58,14 @@ type EventItem struct {
 }
 
 func toEventItem(e models.Event) EventItem {
+	status := e.Status
+	if status == "active" || status == "" {
+		if e.EndDate != nil && e.EndDate.Before(time.Now()) {
+			status = "past"
+		} else {
+			status = "future"
+		}
+	}
 	return EventItem{
 		ID:          e.ID,
 		Code:        e.Code,
@@ -67,7 +75,7 @@ func toEventItem(e models.Event) EventItem {
 		Location:    e.Location,
 		Description: e.Description,
 		Enabled:     e.Enabled,
-		Status:      e.Status,
+		Status:      status,
 		CreatedAt:   e.CreatedAt,
 		UpdatedAt:   e.UpdatedAt,
 	}
@@ -149,7 +157,7 @@ type CreateEventRequest struct {
 		Location    string     `json:"location,omitempty" doc:"Event location"`
 		Description string     `json:"description,omitempty" doc:"Event description"`
 		Enabled     bool       `json:"enabled" doc:"Whether event registration is open"`
-		Status      string     `json:"status,omitempty" doc:"Event status: active, future, or past"`
+		Status      string     `json:"status,omitempty" doc:"Event status: future or past"`
 	}
 }
 
@@ -208,7 +216,7 @@ type UpdateEventRequest struct {
 		Location    *string    `json:"location,omitempty" doc:"Event location"`
 		Description *string    `json:"description,omitempty" doc:"Event description"`
 		Enabled     *bool      `json:"enabled,omitempty" doc:"Whether event registration is open"`
-		Status      *string    `json:"status,omitempty" doc:"Event status: active, future, or past"`
+		Status      *string    `json:"status,omitempty" doc:"Event status: future or past"`
 	}
 }
 
