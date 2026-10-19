@@ -87,4 +87,15 @@ func TestHandleMe(t *testing.T) {
 			t.Fatal("expected error for unauthenticated request, got nil")
 		}
 	})
+
+	t.Run("AuthorizeWithContextApiKey", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), UserIDKey, user.ID)
+		authorizedID, err := handler.Authorize(ctx, "")
+		if err != nil {
+			t.Fatalf("Authorize returned error with UserIDKey in context: %v", err)
+		}
+		if authorizedID != user.ID {
+			t.Errorf("expected user ID %d, got %d", user.ID, authorizedID)
+		}
+	})
 }

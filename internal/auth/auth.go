@@ -82,6 +82,7 @@ type MeResponse struct {
 
 type AuthInput struct {
 	Cookie string `header:"Cookie" doc:"Authentication cookie containing the auth_token JWT" example:"auth_token=..."`
+	APIKey string `header:"X-API-KEY" doc:"API Key for programmatic authentication"`
 }
 
 type MeRequest struct {
@@ -90,7 +91,7 @@ type MeRequest struct {
 }
 
 func (h *AuthHandler) HandleMe(ctx context.Context, input *MeRequest) (*MeResponse, error) {
-	userID, err := h.Authorize(ctx, input.Cookie)
+	userID, err := h.Authorize(ctx, input.Cookie, input.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -261,10 +262,26 @@ func (h *AuthHandler) GetPaidMembers(event string) (map[string]bool, error) {
 	return h.GetRoleMembers(roleName)
 }
 
-// Authorize returns the user ID from context or parses the auth_token from a Cookie header string
-func (h *AuthHandler) Authorize(ctx context.Context, cookieHeader string) (uint, error) {
+// Authorize returns the user ID from context, apiKey, or parses the auth_token from a Cookie header string
+func (h *AuthHandler) Authorize(ctx context.Context, cookieHeader string, apiKey ...string) (uint, error) {
+	if uid, ok := ctx.Value(UserIDKey).(uint); ok && uid != 0 {
+		return uid, nil
+	}
+
+	if len(apiKey) > 0 && apiKey[0] != "" {
+		var keyModel models.APIKey
+		if err := h.db.Where("key = ?", apiKey[0]).First(&keyModel).Error; err == nil {
+			if keyModel.ExpiresAt != nil && time.Now().After(*keyModel.ExpiresAt) {
+				return 0, huma.Error401Unauthorized("Unauthorized: API Key expired")
+			}
+			h.db.Model(&keyModel).Update("last_used_at", time.Now())
+			return keyModel.UserID, nil
+		}
+		return 0, huma.Error401Unauthorized("Unauthorized: Invalid API Key")
+	}
+
 	if cookieHeader == "" {
-		return 0, huma.Error401Unauthorized("Unauthorized: No cookies found")
+		return 0, huma.Error401Unauthorized("Unauthorized: No cookies or API Key found")
 	}
 
 	cookieValue := ""

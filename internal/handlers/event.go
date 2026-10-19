@@ -21,8 +21,8 @@ func NewEventHandler(db *gorm.DB, authHandler *auth.AuthHandler, cfg *config.Con
 	return &EventHandler{db: db, authHandler: authHandler, cfg: cfg}
 }
 
-func (h *EventHandler) checkOrg(ctx context.Context, cookie string) error {
-	userID, err := h.authHandler.Authorize(ctx, cookie)
+func (h *EventHandler) checkOrg(ctx context.Context, cookie string, apiKey ...string) error {
+	userID, err := h.authHandler.Authorize(ctx, cookie, apiKey...)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (h *EventHandler) HandleList(ctx context.Context, input *ListEventsRequest)
 	}
 
 	if input != nil && input.All {
-		if err := h.checkOrg(ctx, input.Cookie); err != nil {
+		if err := h.checkOrg(ctx, input.Cookie, input.APIKey); err != nil {
 			return nil, err
 		}
 		items := make([]EventItem, len(events))
@@ -124,8 +124,8 @@ func (h *EventHandler) HandleList(ctx context.Context, input *ListEventsRequest)
 	// For regular users / guests:
 	// If authenticated, find user's registered events
 	userRegistered := make(map[string]bool)
-	if input != nil && input.Cookie != "" {
-		if userID, err := h.authHandler.Authorize(ctx, input.Cookie); err == nil {
+	if input != nil && (input.Cookie != "" || input.APIKey != "") {
+		if userID, err := h.authHandler.Authorize(ctx, input.Cookie, input.APIKey); err == nil {
 			var regs []models.Registration
 			if err := h.db.Where("user_id = ?", userID).Find(&regs).Error; err == nil {
 				for _, r := range regs {

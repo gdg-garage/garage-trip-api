@@ -45,7 +45,7 @@ type RegistrationResponse struct {
 
 func (h *RegistrationHandler) HandleRegister(ctx context.Context, input *RegistrationRequest) (*RegistrationResponse, error) {
 	// Get UserID
-	userID, err := h.authHandler.Authorize(ctx, input.Cookie)
+	userID, err := h.authHandler.Authorize(ctx, input.Cookie, input.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ type HistoryResponse struct {
 
 func (h *RegistrationHandler) HandleHistory(ctx context.Context, input *HistoryRequest) (*HistoryResponse, error) {
 	// Get UserID
-	userID, err := h.authHandler.Authorize(ctx, input.Cookie)
+	userID, err := h.authHandler.Authorize(ctx, input.Cookie, input.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ type ListRegistrationsResponse struct {
 
 func (h *RegistrationHandler) HandleListRegistrations(ctx context.Context, input *ListRegistrationsRequest) (*ListRegistrationsResponse, error) {
 	// 1. Authorize
-	userID, err := h.authHandler.Authorize(ctx, input.Cookie)
+	userID, err := h.authHandler.Authorize(ctx, input.Cookie, input.APIKey)
 	if err != nil {
 		return nil, err
 	}
